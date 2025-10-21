@@ -6,8 +6,8 @@
 // Get them from: https://app.supabase.com/project/_/settings/api
 
 const SUPABASE_CONFIG = {
-    url: 'YOUR_SUPABASE_URL', // e.g., 'https://xxxxxxxxxxxxx.supabase.co'
-    anonKey: 'YOUR_SUPABASE_ANON_KEY' // Your anon/public key
+    url: 'https://wzytbeemdgigxalvvogi.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6eXRiZWVtZGdpZ3hhbHZ2b2dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEwNTc0MTAsImV4cCI6MjA3NjYzMzQxMH0.KK9l329q0xYrInO6tk0WzjUk0PTfyO3YoV20z7arpBs'
 };
 
 // Initialize Supabase client (will be set after Supabase loads)
