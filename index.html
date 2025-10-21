@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadows of the Dungeon</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game">
+        <header>
+            <h1>⚔️ Shadows of the Dungeon ⚔️</h1>
+            <div id="round-info">Round: <span id="round-number">0</span></div>
+        </header>
+
+        <div id="main-container">
+            <!-- Phase Title -->
+            <div id="phase-title"></div>
+
+            <!-- Event/Description Area -->
+            <div id="event-log"></div>
+
+            <!-- Players Area -->
+            <div id="players-container">
+                <h3>Adventurers</h3>
+                <div id="players-list"></div>
+            </div>
+
+            <!-- Action Buttons Area -->
+            <div id="actions">
+                <button id="main-action-btn" class="primary-btn">Start Game</button>
+                <div id="vote-buttons"></div>
+                <div id="extraction-buttons"></div>
+                <div id="darkness-buttons"></div>
+            </div>
+        </div>
+
+        <!-- Inventory Display (for player) -->
+        <div id="inventory-display">
+            <h3>Your Stash</h3>
+            <div id="inventory-items">No loot yet...</div>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
+
