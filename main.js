@@ -212,10 +212,39 @@ function clearActionButtons() {
 // ----------------------------------------
 // START PHASE
 // ----------------------------------------
-function startGame() {
+async function startGame() {
     clearLog();
     clearActionButtons();
     game = new GameState();
+    
+    // Show end game button for single player
+    const endGameBtn = document.getElementById('end-game-btn');
+    if (endGameBtn) {
+        endGameBtn.style.display = 'inline-block';
+    }
+    
+    // Load equipped items from stash
+    let startingItems = [];
+    if (currentUser && typeof supabase !== 'undefined') {
+        try {
+            const { data: equipped } = await supabase
+                .from('player_items')
+                .select('*, items(*)')
+                .eq('user_id', currentUser.id)
+                .eq('is_equipped', true);
+            
+            if (equipped && equipped.length > 0) {
+                startingItems = equipped.map(item => new LootItem(
+                    item.items.name,
+                    item.items.effect,
+                    item.items.rarity
+                ));
+                addToLog(`🎒 You bring ${startingItems.length} items from your stash!`, 'info');
+            }
+        } catch (error) {
+            console.error('Error loading equipped items:', error);
+        }
+    }
     
     // Create players
     const names = ["Ari", "Bjorn", "Cira", "Dusk", "Elara", "Finn", "Greta", "Hector"];
@@ -227,6 +256,11 @@ function startGame() {
     }
     
     game.playerCharacter = game.players[0];
+    
+    // Give player their equipped items
+    if (startingItems.length > 0) {
+        game.playerCharacter.inventory.push(...startingItems);
+    }
     
     // Assign roles (25-30% corrupted)
     const numCorrupted = Math.max(1, Math.floor(numPlayers * 0.3));
@@ -760,8 +794,25 @@ function resultPhase() {
     
     addToLog("\n═══════════════════════════", "info");
     
+    // Award gold and update stats
+    if (currentUser && game.playerCharacter) {
+        const lootCount = game.playerCharacter.stash.length;
+        const goldEarned = lootCount * 10; // 10 gold per item
+        const won = game.playerCharacter.escaped;
+        
+        if (lootCount > 0) {
+            addToLog(`\n💰 You earned ${goldEarned} gold from your loot!`, 'success');
+            updateUserStats(won, lootCount, goldEarned, game.playerCharacter.escaped);
+        }
+    }
+    
     setTimeout(() => {
         showMainButton("🔄 Play Again", startGame);
+        // Hide end game button
+        const endGameBtn = document.getElementById('end-game-btn');
+        if (endGameBtn) {
+            endGameBtn.style.display = 'none';
+        }
     }, 1000);
 }
 
@@ -794,6 +845,27 @@ function checkWinConditions() {
     }
     
     return false;
+}
+
+// ============================================
+// END GAME EARLY
+// ============================================
+function endGameEarly() {
+    if (confirm('Are you sure you want to end the game and return to the menu?')) {
+        // Save any earned loot/gold
+        const lootCount = game.playerCharacter ? game.playerCharacter.stash.length : 0;
+        const goldEarned = lootCount * 10; // 10 gold per item
+        
+        if (currentUser && lootCount > 0) {
+            updateUserStats(false, lootCount, goldEarned, game.playerCharacter.escaped);
+            addToLog(`💰 You earned ${goldEarned} gold from ${lootCount} items!`, 'success');
+        }
+        
+        // Return to menu
+        setTimeout(() => {
+            showMenuScreen();
+        }, 1000);
+    }
 }
 
 // ============================================

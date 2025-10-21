@@ -8,6 +8,8 @@
 function hideAllScreens() {
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('menu-screen').style.display = 'none';
+    document.getElementById('stashhub-screen').style.display = 'none';
+    document.getElementById('lobby-browser-screen').style.display = 'none';
     document.getElementById('matchmaking-screen').style.display = 'none';
     document.getElementById('game-screen').style.display = 'none';
 }
@@ -20,7 +22,7 @@ function showAuthScreen() {
     addToLog('Please sign in or create an account to play', 'info');
 }
 
-function showMenuScreen() {
+async function showMenuScreen() {
     hideAllScreens();
     document.getElementById('menu-screen').style.display = 'block';
     
@@ -29,12 +31,39 @@ function showMenuScreen() {
             currentUser.profile?.username || currentUser.email;
         document.getElementById('user-stats').textContent = 
             `Games: ${currentUser.profile?.games_played || 0} | Wins: ${currentUser.profile?.games_won || 0}`;
+        
+        // Update gold display
+        await refreshPlayerGold();
+    }
+}
+
+async function refreshPlayerGold() {
+    try {
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('gold')
+            .eq('id', currentUser.id)
+            .single();
+        
+        if (profile) {
+            const goldDisplay = document.getElementById('gold-amount');
+            if (goldDisplay) {
+                goldDisplay.textContent = profile.gold || 0;
+            }
+        }
+    } catch (error) {
+        console.error('Error refreshing gold:', error);
     }
 }
 
 function showMatchmakingScreen() {
     hideAllScreens();
     document.getElementById('matchmaking-screen').style.display = 'block';
+}
+
+function showLobbyBrowserScreen() {
+    hideAllScreens();
+    document.getElementById('lobby-browser-screen').style.display = 'block';
 }
 
 function showGameScreen() {
@@ -109,8 +138,14 @@ function updateLobbyUI() {
 
     const playersList = document.getElementById('lobby-players-list');
     const playerCount = document.getElementById('lobby-player-count');
+    const lobbyCode = document.getElementById('lobby-code-display');
     
     playerCount.textContent = `${currentLobby.player_count} / ${GAME_CONFIG.MAX_PLAYERS} Players`;
+    
+    // Display lobby ID (first 8 characters for readability)
+    if (lobbyCode) {
+        lobbyCode.textContent = `Lobby ID: ${currentLobby.id.substring(0, 8)}`;
+    }
     
     playersList.innerHTML = '';
     
@@ -164,5 +199,92 @@ function handleSignOutFromMenu() {
     signOut().then(() => {
         showAuthScreen();
     });
+}
+
+// ----------------------------------------
+// Lobby Browser Functions
+// ----------------------------------------
+async function showBrowseLobbies() {
+    if (!currentUser) {
+        addToLog('❌ Please sign in first', 'warning');
+        return;
+    }
+    
+    showLobbyBrowserScreen();
+    clearLog();
+    addToLog('🔍 Loading available lobbies...', 'info');
+    await refreshLobbiesList();
+}
+
+async function refreshLobbiesList() {
+    try {
+        const { data: lobbies, error } = await supabase
+            .from('lobbies')
+            .select('*, lobby_players(*)')
+            .eq('status', 'waiting')
+            .lt('player_count', GAME_CONFIG.MAX_PLAYERS)
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+        if (error) throw error;
+
+        const lobbiesContainer = document.getElementById('available-lobbies');
+        lobbiesContainer.innerHTML = '';
+
+        if (!lobbies || lobbies.length === 0) {
+            lobbiesContainer.innerHTML = '<p class="no-lobbies">No available lobbies. Create one!</p>';
+            addToLog('No available lobbies found.', 'info');
+            return;
+        }
+
+        addToLog(`Found ${lobbies.length} available lobbies!`, 'success');
+
+        lobbies.forEach(lobby => {
+            const lobbyDiv = document.createElement('div');
+            lobbyDiv.className = 'lobby-card';
+            
+            const lobbyId = lobby.id.substring(0, 8);
+            const playerCount = lobby.player_count;
+            const maxPlayers = lobby.max_players;
+            const hostName = lobby.lobby_players.find(p => p.user_id === lobby.host_id)?.username || 'Unknown';
+
+            lobbyDiv.innerHTML = `
+                <div class="lobby-card-header">
+                    <span class="lobby-id">🏰 ${lobbyId}</span>
+                    <span class="lobby-host">Host: ${hostName}</span>
+                </div>
+                <div class="lobby-card-info">
+                    <span class="lobby-players">👥 ${playerCount}/${maxPlayers}</span>
+                    <button onclick="joinSpecificLobby('${lobby.id}')" class="join-btn">Join Lobby</button>
+                </div>
+            `;
+            
+            lobbiesContainer.appendChild(lobbyDiv);
+        });
+
+    } catch (error) {
+        console.error('Refresh lobbies error:', error);
+        addToLog(`❌ Error loading lobbies: ${error.message}`, 'warning');
+    }
+}
+
+async function joinSpecificLobby(lobbyId) {
+    clearLog();
+    addToLog(`🔗 Joining lobby...`, 'info');
+    showMatchmakingScreen();
+    await joinLobby(lobbyId);
+}
+
+async function showCreateLobby() {
+    if (!currentUser) {
+        addToLog('❌ Please sign in first', 'warning');
+        return;
+    }
+
+    clearLog();
+    showMatchmakingScreen();
+    addToLog('🏰 Creating your lobby...', 'info');
+    
+    await createLobbyManual();
 }
 

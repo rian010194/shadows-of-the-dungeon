@@ -46,7 +46,7 @@ async function findGame() {
 }
 
 // ----------------------------------------
-// Create Lobby
+// Create Lobby (for quick match)
 // ----------------------------------------
 async function createLobby() {
     try {
@@ -78,9 +78,46 @@ async function createLobby() {
 }
 
 // ----------------------------------------
+// Create Lobby Manual (for manual lobby creation)
+// ----------------------------------------
+async function createLobbyManual() {
+    try {
+        const { data: lobby, error } = await supabase
+            .from('lobbies')
+            .insert([
+                {
+                    host_id: currentUser.id,
+                    status: 'waiting',
+                    player_count: 0,
+                    max_players: GAME_CONFIG.MAX_PLAYERS
+                }
+            ])
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        currentLobby = lobby;
+        addToLog(`✅ Lobby created! Share this ID with friends: ${lobby.id.substring(0, 8)}`, 'success');
+        addToLog(`⏳ Waiting for players to join...`, 'info');
+        addToLog(`💡 You can start the game anytime with AI filling empty slots!`, 'info');
+        
+        // Join own lobby
+        await joinLobby(lobby.id);
+        
+        // Don't start matchmaking timeout for manual lobbies
+        // Host can start manually whenever they want
+        
+    } catch (error) {
+        console.error('Create lobby error:', error);
+        addToLog(`❌ Error creating lobby: ${error.message}`, 'warning');
+    }
+}
+
+// ----------------------------------------
 // Join Lobby
 // ----------------------------------------
-async function joinLobby(lobbyId) {
+async function joinLobby(lobbyId, autoStart = true) {
     try {
         // Add player to lobby
         const { data: player, error: playerError } = await supabase
@@ -121,8 +158,10 @@ async function joinLobby(lobbyId) {
         // Update UI
         updateLobbyUI();
         
-        // Start matchmaking timeout
-        startMatchmakingTimeout();
+        // Start matchmaking timeout only if autoStart is true (for quick match)
+        if (autoStart) {
+            startMatchmakingTimeout();
+        }
         
     } catch (error) {
         console.error('Join lobby error:', error);
@@ -213,7 +252,7 @@ function startMatchmakingTimeout() {
             
             // Only host can start the game
             if (currentLobby.host_id === currentUser.id) {
-                await startGame();
+                await startLobbyGame();
             }
         } else {
             addToLog(`❌ Not enough players to start. Need at least ${GAME_CONFIG.MIN_PLAYERS_FOR_START} players.`, 'warning');
@@ -224,9 +263,9 @@ function startMatchmakingTimeout() {
 }
 
 // ----------------------------------------
-// Start Game
+// Start Lobby Game (Host initiates)
 // ----------------------------------------
-async function startGame() {
+async function startLobbyGame() {
     if (!currentLobby) return;
     
     try {
@@ -244,6 +283,34 @@ async function startGame() {
         console.error('Start game error:', error);
         addToLog(`❌ Error starting game: ${error.message}`, 'warning');
     }
+}
+
+// ----------------------------------------
+// Manual Start Game (Host can start anytime with AI fill)
+// ----------------------------------------
+async function manualStartGame() {
+    if (!currentLobby) return;
+    
+    if (currentLobby.host_id !== currentUser.id) {
+        addToLog('❌ Only the host can start the game!', 'warning');
+        return;
+    }
+    
+    if (currentLobby.player_count < GAME_CONFIG.MIN_PLAYERS_FOR_START) {
+        addToLog(`❌ Need at least ${GAME_CONFIG.MIN_PLAYERS_FOR_START} players to start!`, 'warning');
+        return;
+    }
+    
+    const aiCount = GAME_CONFIG.MAX_PLAYERS - currentLobby.player_count;
+    addToLog(`🎮 Starting game with ${currentLobby.player_count} players and ${aiCount} AI!`, 'success');
+    
+    // Clear any existing timeout
+    if (matchmakingTimeout) {
+        clearTimeout(matchmakingTimeout);
+        matchmakingTimeout = null;
+    }
+    
+    await startLobbyGame();
 }
 
 // ----------------------------------------

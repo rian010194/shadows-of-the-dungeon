@@ -48,12 +48,25 @@
                 <p class="user-stats" id="user-stats"></p>
             </div>
 
+            <div class="gold-display">
+                💰 Gold: <span id="gold-amount">0</span>
+            </div>
+
             <div class="menu-buttons">
+                <button onclick="showStashHub()" class="primary-btn stash-btn">
+                    🎒 Stash Hub
+                </button>
                 <button onclick="selectSinglePlayer()" class="primary-btn">
                     🎮 Single Player
                 </button>
                 <button onclick="selectMultiplayer()" class="primary-btn">
-                    👥 Find Multiplayer Game
+                    👥 Quick Match
+                </button>
+                <button onclick="showCreateLobby()" class="primary-btn">
+                    🏰 Create Lobby
+                </button>
+                <button onclick="showBrowseLobbies()" class="primary-btn">
+                    🔍 Browse Lobbies
                 </button>
                 <button onclick="handleSignOutFromMenu()" class="secondary-btn">
                     🚪 Sign Out
@@ -63,13 +76,86 @@
             <div id="event-log"></div>
         </div>
 
+        <!-- STASH HUB SCREEN -->
+        <div id="stashhub-screen" class="screen" style="display: none;">
+            <h2>🎒 Stash Hub</h2>
+            
+            <div class="stashhub-header">
+                <div class="gold-display-large">
+                    💰 <span id="stashhub-gold">0</span> Gold
+                </div>
+            </div>
+
+            <div class="stashhub-tabs">
+                <button class="tab-btn active" onclick="showStashTab('inventory')">📦 Inventory</button>
+                <button class="tab-btn" onclick="showStashTab('shop')">🛒 Shop</button>
+                <button class="tab-btn" onclick="showStashTab('quests')">📜 Quests</button>
+            </div>
+
+            <div id="stashhub-content">
+                <!-- Inventory Tab -->
+                <div id="inventory-tab" class="stash-tab active">
+                    <h3>Your Items</h3>
+                    <div class="loadout-section">
+                        <h4>Equipped for Next Game (Max 3)</h4>
+                        <div id="equipped-items" class="item-grid"></div>
+                    </div>
+                    <div class="collection-section">
+                        <h4>Your Collection</h4>
+                        <div id="collection-items" class="item-grid"></div>
+                    </div>
+                </div>
+
+                <!-- Shop Tab -->
+                <div id="shop-tab" class="stash-tab" style="display: none;">
+                    <h3>🛒 Shop - Buy Items</h3>
+                    <div id="shop-items" class="item-grid"></div>
+                </div>
+
+                <!-- Quests Tab -->
+                <div id="quests-tab" class="stash-tab" style="display: none;">
+                    <h3>📜 Quest Giver - Earn Gold</h3>
+                    <div id="active-quests" class="quest-list"></div>
+                </div>
+            </div>
+
+            <div id="event-log"></div>
+
+            <div class="stashhub-actions">
+                <button onclick="showMenuScreen()" class="primary-btn">
+                    ⬅️ Back to Menu
+                </button>
+            </div>
+        </div>
+
+        <!-- LOBBY BROWSER SCREEN -->
+        <div id="lobby-browser-screen" class="screen" style="display: none;">
+            <h2>🔍 Browse Lobbies</h2>
+            
+            <div id="available-lobbies" class="lobby-list">
+                <!-- Lobbies will be listed here -->
+            </div>
+
+            <div id="event-log"></div>
+
+            <div class="lobby-actions">
+                <button onclick="refreshLobbiesList()" class="primary-btn">
+                    🔄 Refresh
+                </button>
+                <button onclick="showMenuScreen()" class="secondary-btn">
+                    ⬅️ Back to Menu
+                </button>
+            </div>
+        </div>
+
         <!-- MATCHMAKING SCREEN -->
         <div id="matchmaking-screen" class="screen" style="display: none;">
             <h2>🔍 Game Lobby</h2>
             
             <div class="lobby-info">
                 <p id="lobby-player-count">0 / 8 Players</p>
-                <p class="lobby-timer">Waiting for players or AI fill...</p>
+                <p id="lobby-code-display" class="lobby-code">Lobby ID: ...</p>
+                <p class="lobby-timer" id="lobby-timer-text">Waiting for players or AI fill...</p>
             </div>
 
             <div id="lobby-players-list" class="lobby-players">
@@ -79,11 +165,11 @@
             <div id="event-log"></div>
 
             <div class="lobby-actions">
-                <button id="start-game-btn" onclick="startGame()" class="primary-btn" style="display: none;">
-                    🎮 Start Game
+                <button id="start-game-btn" onclick="manualStartGame()" class="primary-btn" style="display: none;">
+                    🎮 Start Game Now
                 </button>
                 <button onclick="cancelMatchmaking()" class="secondary-btn">
-                    ❌ Cancel
+                    ❌ Leave Lobby
                 </button>
             </div>
         </div>
@@ -106,6 +192,9 @@
                 <!-- Action Buttons Area -->
                 <div id="actions">
                     <button id="main-action-btn" class="primary-btn">Start Game</button>
+                    <button id="end-game-btn" onclick="endGameEarly()" class="secondary-btn" style="display: none;">
+                        🚪 End Game & Return to Menu
+                    </button>
                     <div id="vote-buttons"></div>
                     <div id="extraction-buttons"></div>
                     <div id="darkness-buttons"></div>
@@ -125,6 +214,7 @@
     <script src="main.js"></script>
     <script src="auth.js"></script>
     <script src="matchmaking.js"></script>
+    <script src="stashhub.js"></script>
     <script src="ui.js"></script>
     <script src="app.js"></script>
 </body>
