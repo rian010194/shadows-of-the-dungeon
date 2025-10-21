@@ -22,20 +22,9 @@ async function signUp(email, password, username) {
 
         if (authError) throw authError;
 
-        // Create profile in database
-        const { error: profileError } = await supabase
-            .from('profiles')
-            .insert([
-                {
-                    id: authData.user.id,
-                    username: username,
-                    email: email,
-                    games_played: 0,
-                    games_won: 0
-                }
-            ]);
-
-        if (profileError) throw profileError;
+        // Profile is created automatically via Supabase trigger
+        // Wait a moment for the trigger to complete
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         addToLog('✅ Account created successfully! Please check your email to verify.', 'success');
         return { success: true, user: authData.user };
