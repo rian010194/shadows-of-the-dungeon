@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shadows of the Dungeon</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
     <div id="game">
@@ -13,36 +15,118 @@
             <div id="round-info">Round: <span id="round-number">0</span></div>
         </header>
 
-        <div id="main-container">
-            <!-- Phase Title -->
-            <div id="phase-title"></div>
-
-            <!-- Event/Description Area -->
+        <!-- AUTH SCREEN -->
+        <div id="auth-screen" class="screen">
             <div id="event-log"></div>
-
-            <!-- Players Area -->
-            <div id="players-container">
-                <h3>Adventurers</h3>
-                <div id="players-list"></div>
+            
+            <!-- Sign Up Form -->
+            <div id="signup-form" class="auth-form">
+                <h2>Create Account</h2>
+                <input type="text" id="signup-username" placeholder="Username" class="auth-input">
+                <input type="email" id="signup-email" placeholder="Email" class="auth-input">
+                <input type="password" id="signup-password" placeholder="Password (min 6 chars)" class="auth-input">
+                <button onclick="handleSignUp()" class="primary-btn">Sign Up</button>
             </div>
 
-            <!-- Action Buttons Area -->
-            <div id="actions">
-                <button id="main-action-btn" class="primary-btn">Start Game</button>
-                <div id="vote-buttons"></div>
-                <div id="extraction-buttons"></div>
-                <div id="darkness-buttons"></div>
+            <!-- Sign In Form -->
+            <div id="signin-form" class="auth-form" style="display: none;">
+                <h2>Sign In</h2>
+                <input type="email" id="signin-email" placeholder="Email" class="auth-input">
+                <input type="password" id="signin-password" placeholder="Password" class="auth-input">
+                <button onclick="handleSignIn()" class="primary-btn">Sign In</button>
+            </div>
+
+            <div class="auth-toggle">
+                <button onclick="toggleAuthMode()" class="toggle-btn" id="toggle-auth-text">Already have an account? Sign In</button>
             </div>
         </div>
 
-        <!-- Inventory Display (for player) -->
-        <div id="inventory-display">
-            <h3>Your Stash</h3>
-            <div id="inventory-items">No loot yet...</div>
+        <!-- MENU SCREEN -->
+        <div id="menu-screen" class="screen" style="display: none;">
+            <div class="menu-header">
+                <h2>Welcome, <span id="username-display"></span>!</h2>
+                <p class="user-stats" id="user-stats"></p>
+            </div>
+
+            <div class="menu-buttons">
+                <button onclick="selectSinglePlayer()" class="primary-btn">
+                    🎮 Single Player
+                </button>
+                <button onclick="selectMultiplayer()" class="primary-btn">
+                    👥 Find Multiplayer Game
+                </button>
+                <button onclick="handleSignOutFromMenu()" class="secondary-btn">
+                    🚪 Sign Out
+                </button>
+            </div>
+
+            <div id="event-log"></div>
+        </div>
+
+        <!-- MATCHMAKING SCREEN -->
+        <div id="matchmaking-screen" class="screen" style="display: none;">
+            <h2>🔍 Game Lobby</h2>
+            
+            <div class="lobby-info">
+                <p id="lobby-player-count">0 / 8 Players</p>
+                <p class="lobby-timer">Waiting for players or AI fill...</p>
+            </div>
+
+            <div id="lobby-players-list" class="lobby-players">
+                <!-- Players will be added here dynamically -->
+            </div>
+
+            <div id="event-log"></div>
+
+            <div class="lobby-actions">
+                <button id="start-game-btn" onclick="startGame()" class="primary-btn" style="display: none;">
+                    🎮 Start Game
+                </button>
+                <button onclick="cancelMatchmaking()" class="secondary-btn">
+                    ❌ Cancel
+                </button>
+            </div>
+        </div>
+
+        <!-- GAME SCREEN -->
+        <div id="game-screen" class="screen" style="display: none;">
+            <div id="main-container">
+                <!-- Phase Title -->
+                <div id="phase-title"></div>
+
+                <!-- Event/Description Area -->
+                <div id="event-log"></div>
+
+                <!-- Players Area -->
+                <div id="players-container">
+                    <h3>Adventurers</h3>
+                    <div id="players-list"></div>
+                </div>
+
+                <!-- Action Buttons Area -->
+                <div id="actions">
+                    <button id="main-action-btn" class="primary-btn">Start Game</button>
+                    <div id="vote-buttons"></div>
+                    <div id="extraction-buttons"></div>
+                    <div id="darkness-buttons"></div>
+                </div>
+            </div>
+
+            <!-- Inventory Display (for player) -->
+            <div id="inventory-display">
+                <h3>Your Stash</h3>
+                <div id="inventory-items">No loot yet...</div>
+            </div>
         </div>
     </div>
 
+    <!-- Scripts in order -->
+    <script src="config.js"></script>
     <script src="main.js"></script>
+    <script src="auth.js"></script>
+    <script src="matchmaking.js"></script>
+    <script src="ui.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
 
