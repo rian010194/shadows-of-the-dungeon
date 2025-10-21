@@ -22,23 +22,20 @@ async function signUp(email, password, username) {
 
         if (authError) throw authError;
 
-        // Profile is created automatically via Supabase trigger
-        // Wait a moment for the trigger to complete
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Create profile in database
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .insert([
+                {
+                    id: authData.user.id,
+                    username: username,
+                    email: email,
+                    games_played: 0,
+                    games_won: 0
+                }
+            ]);
 
-        // Give starter items
-        try {
-            await supabase.rpc('give_starter_items', { p_user_id: authData.user.id });
-        } catch (itemError) {
-            console.error('Error giving starter items:', itemError);
-        }
-
-        // Initialize quests
-        try {
-            await supabase.rpc('initialize_player_quests', { p_user_id: authData.user.id });
-        } catch (questError) {
-            console.error('Error initializing quests:', questError);
-        }
+        if (profileError) throw profileError;
 
         addToLog('✅ Account created successfully! Please check your email to verify.', 'success');
         addToLog('🎁 Starter items added to your stash!', 'success');
