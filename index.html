@@ -41,6 +41,126 @@
             </div>
         </div>
 
+        <!-- CHARACTER CREATION SCREEN -->
+        <div id="character-creation-screen" class="screen" style="display: none;">
+            <div class="character-creation-container">
+                <h2>✨ Skapa Din Karaktär ✨</h2>
+                
+                <div id="character-error" class="character-error" style="display: none;"></div>
+                
+                <!-- Step 1: Character Name -->
+                <div id="char-name-step" class="char-step">
+                    <div class="step-header">
+                        <div class="step-number">1</div>
+                        <h3>Välj ett namn för din karaktär</h3>
+                    </div>
+                    <p class="step-description">Detta är namnet andra spelare kommer se i spelet</p>
+                    <input type="text" id="character-name-input" placeholder="T.ex. Thorin, Lyra, Shadow..." class="character-name-input" maxlength="50">
+                    <button onclick="proceedToClassSelection()" class="primary-btn char-btn">
+                        Nästa Steg →
+                    </button>
+                </div>
+                
+                <!-- Step 2: Class Selection -->
+                <div id="char-class-step" class="char-step" style="display: none;">
+                    <div class="step-header">
+                        <div class="step-number">2</div>
+                        <h3>Välj din klass</h3>
+                    </div>
+                    <p class="step-description">Varje klass har olika styrkor och svagheter</p>
+                    <div id="class-selection-grid" class="class-selection-grid"></div>
+                    <button onclick="backToNameSelection()" class="secondary-btn char-btn">
+                        ← Tillbaka
+                    </button>
+                </div>
+                
+                <!-- Step 3: Stat Allocation -->
+                <div id="char-stats-step" class="char-step" style="display: none;">
+                    <div class="step-header">
+                        <div class="step-number">3</div>
+                        <h3>Fördela bonuspoäng</h3>
+                    </div>
+                    
+                    <div id="selected-class-display" class="selected-class-display"></div>
+                    
+                    <div class="points-remaining-display">
+                        Poäng kvar: <span id="points-remaining">5</span>
+                    </div>
+                    
+                    <div class="stat-allocation-grid">
+                        <div class="stat-row">
+                            <div class="stat-info">
+                                <span class="stat-icon-large">💪</span>
+                                <span class="stat-name">Styrka</span>
+                            </div>
+                            <div class="stat-controls">
+                                <button onclick="decreaseStat('strength')" class="stat-btn">-</button>
+                                <div class="stat-value" id="strength-value">0</div>
+                                <button onclick="increaseStat('strength')" class="stat-btn">+</button>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-row">
+                            <div class="stat-info">
+                                <span class="stat-icon-large">🧠</span>
+                                <span class="stat-name">Intelligens</span>
+                            </div>
+                            <div class="stat-controls">
+                                <button onclick="decreaseStat('intellect')" class="stat-btn">-</button>
+                                <div class="stat-value" id="intellect-value">0</div>
+                                <button onclick="increaseStat('intellect')" class="stat-btn">+</button>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-row">
+                            <div class="stat-info">
+                                <span class="stat-icon-large">⚡</span>
+                                <span class="stat-name">Smidighet</span>
+                            </div>
+                            <div class="stat-controls">
+                                <button onclick="decreaseStat('agility')" class="stat-btn">-</button>
+                                <div class="stat-value" id="agility-value">0</div>
+                                <button onclick="increaseStat('agility')" class="stat-btn">+</button>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-row">
+                            <div class="stat-info">
+                                <span class="stat-icon-large">❤️</span>
+                                <span class="stat-name">Vitalitet</span>
+                            </div>
+                            <div class="stat-controls">
+                                <button onclick="decreaseStat('vitality')" class="stat-btn">-</button>
+                                <div class="stat-value" id="vitality-value">0</div>
+                                <button onclick="increaseStat('vitality')" class="stat-btn">+</button>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-row">
+                            <div class="stat-info">
+                                <span class="stat-icon-large">👁️</span>
+                                <span class="stat-name">Visdom</span>
+                            </div>
+                            <div class="stat-controls">
+                                <button onclick="decreaseStat('wisdom')" class="stat-btn">-</button>
+                                <div class="stat-value" id="wisdom-value">0</div>
+                                <button onclick="increaseStat('wisdom')" class="stat-btn">+</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="char-step-actions">
+                        <button onclick="backToClassSelection()" class="secondary-btn char-btn">
+                            ← Tillbaka
+                        </button>
+                        <button id="confirm-character-btn" onclick="confirmCharacterCreation()" class="primary-btn char-btn" disabled>
+                            ✨ Skapa Karaktär
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- MENU SCREEN -->
         <div id="menu-screen" class="screen" style="display: none;">
             <div class="menu-header">
@@ -183,6 +303,12 @@
                 <!-- Event/Description Area -->
                 <div id="event-log"></div>
 
+                <!-- Dungeon Map Display -->
+                <div id="dungeon-map-container" style="display: none;">
+                    <h3 style="color: #d4af37; text-align: center; margin-bottom: 15px;">🗺️ Dungeon Karta</h3>
+                    <div id="dungeon-map"></div>
+                </div>
+
                 <!-- Players Area -->
                 <div id="players-container">
                     <h3>Adventurers</h3>
@@ -212,9 +338,12 @@
     <!-- Scripts in order -->
     <script src="config.js"></script>
     <script src="main.js"></script>
+    <script src="character_creation.js"></script>
     <script src="auth.js"></script>
     <script src="matchmaking.js"></script>
     <script src="stashhub.js"></script>
+    <script src="item_usage.js"></script>
+    <script src="dungeon_system.js"></script>
     <script src="ui.js"></script>
     <script src="app.js"></script>
 </body>

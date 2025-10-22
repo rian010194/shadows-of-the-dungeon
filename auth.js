@@ -72,7 +72,7 @@ async function signIn(email, password) {
             currentUser.profile = profile;
         }
 
-        addToLog(`✅ Welcome back, ${currentUser.profile?.username || currentUser.email}!`, 'success');
+        addToLog(`✅ Welcome back, ${currentUser.profile?.character_name || currentUser.profile?.username || currentUser.email}!`, 'success');
         return { success: true, user: currentUser };
     } catch (error) {
         console.error('Login error:', error);
@@ -122,6 +122,11 @@ async function checkSession() {
             
             // Ensure starter items and quests are initialized
             await ensurePlayerInitialized();
+            
+            // Check if character needs to be created
+            if (!currentUser.profile.character_created) {
+                return 'needs_character';
+            }
             
             return true;
         }

@@ -7,6 +7,7 @@
 // ----------------------------------------
 function hideAllScreens() {
     document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('character-creation-screen').style.display = 'none';
     document.getElementById('menu-screen').style.display = 'none';
     document.getElementById('stashhub-screen').style.display = 'none';
     document.getElementById('lobby-browser-screen').style.display = 'none';
@@ -24,11 +25,32 @@ function showAuthScreen() {
 
 async function showMenuScreen() {
     hideAllScreens();
+    
+    // Check if character needs to be created
+    if (currentUser && currentUser.profile && !currentUser.profile.character_created) {
+        showCharacterCreation();
+        return;
+    }
+    
     document.getElementById('menu-screen').style.display = 'block';
     
     if (currentUser) {
-        document.getElementById('username-display').textContent = 
-            currentUser.profile?.username || currentUser.email;
+        // Show character name if available
+        const displayName = currentUser.profile?.character_name || currentUser.profile?.username || currentUser.email;
+        document.getElementById('username-display').textContent = displayName;
+        
+        // Show class emoji if available
+        const classEmojis = {
+            'mage': '🔮',
+            'warrior': '⚔️',
+            'rogue': '🗡️',
+            'seer': '🔯'
+        };
+        const classEmoji = classEmojis[currentUser.profile?.character_class] || '';
+        if (classEmoji) {
+            document.getElementById('username-display').textContent = `${classEmoji} ${displayName}`;
+        }
+        
         document.getElementById('user-stats').textContent = 
             `Games: ${currentUser.profile?.games_played || 0} | Wins: ${currentUser.profile?.games_won || 0}`;
         
@@ -108,9 +130,17 @@ function handleSignIn() {
         return;
     }
 
-    signIn(email, password).then(result => {
+    signIn(email, password).then(async result => {
         if (result.success) {
-            showMenuScreen();
+            // Initialize character system
+            await initializeCharacterSystem();
+            
+            // Check if character needs to be created
+            if (!currentUser.profile.character_created) {
+                showCharacterCreation();
+            } else {
+                showMenuScreen();
+            }
         }
     });
 }

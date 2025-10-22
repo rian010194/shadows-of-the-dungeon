@@ -17,11 +17,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
     
-    // Check for existing session
-    const hasSession = await checkSession();
+    // Initialize character system
+    await initializeCharacterSystem();
     
-    if (hasSession) {
-        // User is already logged in
+    // Check for existing session
+    const sessionStatus = await checkSession();
+    
+    if (sessionStatus === 'needs_character') {
+        // User logged in but needs to create character
+        console.log("✅ User session found - character creation needed");
+        showCharacterCreation();
+    } else if (sessionStatus === true) {
+        // User is already logged in with character
         console.log("✅ User session found");
         showMenuScreen();
     } else {
@@ -30,12 +37,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     
     // Listen for auth state changes
-    supabase.auth.onAuthStateChange((event, session) => {
+    supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('Auth state changed:', event);
         
-        if (event === 'SIGNED_IN') {
+        if (event === 'SIGNED_IN' && session) {
             currentUser = session.user;
-            showMenuScreen();
+            
+            // Get profile
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+            
+            if (profile) {
+                currentUser.profile = profile;
+            }
+            
+            // Check if character needs to be created
+            if (!currentUser.profile || !currentUser.profile.character_created) {
+                await initializeCharacterSystem();
+                showCharacterCreation();
+            } else {
+                showMenuScreen();
+            }
         } else if (event === 'SIGNED_OUT') {
             currentUser = null;
             showAuthScreen();
@@ -67,9 +92,13 @@ function showOfflineMode() {
 // MULTIPLAYER GAME START (with real players + AI)
 // ============================================
 
-function startGameMultiplayer(realPlayers, aiCount) {
+async function startGameMultiplayer(realPlayers, aiCount) {
     clearActionButtons();
     game = new GameState();
+    
+    // Load player's equipped items
+    await loadEquippedItems();
+    resetItemsForNewGame();
     
     // AI names pool
     const aiNames = ["Ari", "Bjorn", "Cira", "Dusk", "Elara", "Finn", "Greta", "Hector"];

@@ -16,8 +16,18 @@ let supabase = null;
 // Initialize Supabase when script loads
 function initializeSupabase() {
     if (typeof window.supabase !== 'undefined') {
-        supabase = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
-        console.log('✅ Supabase initialized');
+        // Configure Supabase with persistSession option to allow multiple sessions
+        supabase = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {
+            auth: {
+                persistSession: true,
+                autoRefreshToken: true,
+                detectSessionInUrl: true,
+                flowType: 'pkce',
+                // Allow multiple tabs/windows with different sessions
+                storageKey: 'supabase.auth.token.' + Math.random().toString(36).substring(2, 15)
+            }
+        });
+        console.log('✅ Supabase initialized (multi-session support enabled)');
         return true;
     } else {
         console.error('❌ Supabase library not loaded');
