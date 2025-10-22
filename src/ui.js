@@ -27,7 +27,7 @@ async function showMenuScreen() {
     hideAllScreens();
     
     // Check if character needs to be created
-    if (currentUser && currentUser.profile && !currentUser.profile.character_created) {
+    if (currentUser && currentUser.profile && currentUser.profile.character_created === false) {
         showCharacterCreation();
         return;
     }
@@ -36,7 +36,7 @@ async function showMenuScreen() {
     
     if (currentUser) {
         // Show character name if available
-        const displayName = currentUser.profile?.character_name || currentUser.profile?.username || currentUser.email;
+        const displayName = (currentUser.profile && (currentUser.profile.character_name || currentUser.profile.username)) || currentUser.email;
         document.getElementById('username-display').textContent = displayName;
         
         // Show class emoji if available

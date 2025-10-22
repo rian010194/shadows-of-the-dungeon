@@ -312,7 +312,13 @@ async function confirmCharacterCreation() {
             p_bonus_wisdom: allocatedStats.wisdom
         });
         
-        if (error) throw error;
+        if (error) {
+            // 409 likely means name already taken or invalid allocation
+            const friendly = (error.code === '409' || error.message?.includes('Invalid'))
+                ? 'Kunde inte skapa karaktär. Namn upptaget eller ogiltig poängfördelning.'
+                : error.message;
+            throw new Error(friendly);
+        }
         
         if (data && !data.success) {
             throw new Error(data.error || 'Character creation failed');

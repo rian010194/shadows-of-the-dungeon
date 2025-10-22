@@ -17,8 +17,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
     
-    // Initialize character system
-    await initializeCharacterSystem();
+    // Initialize character system (safe if called multiple times)
+    if (typeof initializeCharacterSystem === 'function') {
+        await initializeCharacterSystem();
+    }
     
     // Check for existing session
     const sessionStatus = await checkSession();
@@ -55,8 +57,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
             
             // Check if character needs to be created
-            if (!currentUser.profile || !currentUser.profile.character_created) {
-                await initializeCharacterSystem();
+            if (!currentUser.profile || currentUser.profile.character_created === false) {
+                if (typeof initializeCharacterSystem === 'function') {
+                    await initializeCharacterSystem();
+                }
                 showCharacterCreation();
             } else {
                 showMenuScreen();

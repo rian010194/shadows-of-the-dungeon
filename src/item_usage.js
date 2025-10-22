@@ -2,7 +2,8 @@
 // ITEM USAGE SYSTEM
 // ============================================
 
-let equippedItems = []; // Items player has equipped for this game
+// Note: Avoid clashing with equippedItems defined in stashhub.js (global scope)
+let gameEquippedItems = []; // Items player has equipped for this game (during a game session)
 let usedItems = []; // Items already used in this game
 
 // ----------------------------------------
@@ -10,7 +11,7 @@ let usedItems = []; // Items already used in this game
 // ----------------------------------------
 async function loadEquippedItems() {
     if (!currentUser) {
-        equippedItems = [];
+        gameEquippedItems = [];
         return;
     }
     
@@ -23,15 +24,15 @@ async function loadEquippedItems() {
         
         if (error) throw error;
         
-        equippedItems = data || [];
-        console.log('✅ Loaded equipped items:', equippedItems.length);
+        gameEquippedItems = data || [];
+        console.log('✅ Loaded equipped items:', gameEquippedItems.length);
         
         // Display equipped items in game
         displayEquippedItems();
         
     } catch (error) {
         console.error('Error loading equipped items:', error);
-        equippedItems = [];
+        gameEquippedItems = [];
     }
 }
 
@@ -40,7 +41,7 @@ async function loadEquippedItems() {
 // ----------------------------------------
 function displayEquippedItems() {
     const container = document.getElementById('inventory-items');
-    if (!container || equippedItems.length === 0) {
+    if (!container || gameEquippedItems.length === 0) {
         if (container) {
             container.innerHTML = '<p style="color: #888;">Inga föremål utrustade</p>';
         }
@@ -49,7 +50,7 @@ function displayEquippedItems() {
     
     container.innerHTML = '';
     
-    equippedItems.forEach((playerItem, index) => {
+    gameEquippedItems.forEach((playerItem, index) => {
         const item = playerItem.items;
         const isUsed = usedItems.includes(playerItem.id);
         
@@ -83,9 +84,9 @@ async function useEquippedItem(index) {
         return;
     }
     
-    if (index < 0 || index >= equippedItems.length) return;
+    if (index < 0 || index >= gameEquippedItems.length) return;
     
-    const playerItem = equippedItems[index];
+    const playerItem = gameEquippedItems[index];
     const item = playerItem.items;
     
     // Check if already used
@@ -318,7 +319,7 @@ function getRarityEmoji(rarity) {
 
 async function decreaseItemQuantity(playerItemId) {
     try {
-        const playerItem = equippedItems.find(pi => pi.id === playerItemId);
+        const playerItem = gameEquippedItems.find(pi => pi.id === playerItemId);
         if (!playerItem) return;
         
         const newQuantity = playerItem.quantity - 1;
