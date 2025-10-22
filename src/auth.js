@@ -209,6 +209,12 @@ async function updateUserStats(won = false, loot = 0, goldEarned = 0, escaped = 
         if (error) throw error;
         
         currentUser.profile = data;
+        
+        // Update gold display in all parts of the app
+        if (typeof updateGoldDisplay === 'function') {
+            updateGoldDisplay();
+        }
+        
         console.log('✅ Stats updated');
         
         // Update quest progress

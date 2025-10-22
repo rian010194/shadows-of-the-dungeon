@@ -2,7 +2,7 @@
 // STASH HUB SYSTEM
 // ============================================
 
-let playerGold = 0;
+// Remove local playerGold variable - use currentUser.profile.gold instead
 let playerItems = [];
 let allItems = [];
 let playerQuests = [];
@@ -41,8 +41,14 @@ async function loadStashHubData() {
 
         if (profileError) throw profileError;
         
-        playerGold = profile.gold || 0;
-        updateGoldDisplay();
+        // Update currentUser profile with latest gold
+        if (currentUser && currentUser.profile) {
+            currentUser.profile.gold = profile.gold || 0;
+        }
+        // Update gold display in all parts of the app
+        if (typeof updateGoldDisplay === 'function') {
+            updateGoldDisplay();
+        }
 
         // Load all items (for shop)
         const { data: items, error: itemsError } = await supabase
@@ -80,15 +86,7 @@ async function loadStashHubData() {
 }
 
 // ----------------------------------------
-// Update Gold Display
-// ----------------------------------------
-function updateGoldDisplay() {
-    const menuGold = document.getElementById('gold-amount');
-    const stashGold = document.getElementById('stashhub-gold');
-    
-    if (menuGold) menuGold.textContent = playerGold;
-    if (stashGold) stashGold.textContent = playerGold;
-}
+// Update Gold Display - now handled by global function in ui.js
 
 // ----------------------------------------
 // Show Stash Tab
@@ -293,7 +291,7 @@ function createShopItemCard(item) {
     };
     
     const owned = playerItems.find(pi => pi.item_id === item.id);
-    const canAfford = playerGold >= item.price;
+    const canAfford = (currentUser?.profile?.gold || 0) >= item.price;
     
     card.innerHTML = `
         <div class="item-header">
@@ -316,14 +314,14 @@ function createShopItemCard(item) {
 // Buy Item
 // ----------------------------------------
 async function buyItem(itemId, price) {
-    if (playerGold < price) {
+    if ((currentUser?.profile?.gold || 0) < price) {
         addToLog('❌ Not enough gold!', 'warning');
         return;
     }
     
     try {
         // Deduct gold
-        const newGold = playerGold - price;
+        const newGold = (currentUser?.profile?.gold || 0) - price;
         const { error: goldError } = await supabase
             .from('profiles')
             .update({ gold: newGold })
@@ -342,8 +340,14 @@ async function buyItem(itemId, price) {
         
         if (itemError) throw itemError;
         
-        playerGold = newGold;
-        updateGoldDisplay();
+        // Update currentUser profile
+        if (currentUser && currentUser.profile) {
+            currentUser.profile.gold = newGold;
+        }
+        // Update gold display in all parts of the app
+        if (typeof updateGoldDisplay === 'function') {
+            updateGoldDisplay();
+        }
         
         await loadStashHubData();
         displayShop();
@@ -431,7 +435,7 @@ async function claimQuest(playerQuestId, reward) {
         if (questError) throw questError;
         
         // Add gold
-        const newGold = playerGold + reward;
+        const newGold = (currentUser?.profile?.gold || 0) + reward;
         const { error: goldError } = await supabase
             .from('profiles')
             .update({ gold: newGold })
@@ -439,8 +443,14 @@ async function claimQuest(playerQuestId, reward) {
         
         if (goldError) throw goldError;
         
-        playerGold = newGold;
-        updateGoldDisplay();
+        // Update currentUser profile
+        if (currentUser && currentUser.profile) {
+            currentUser.profile.gold = newGold;
+        }
+        // Update gold display in all parts of the app
+        if (typeof updateGoldDisplay === 'function') {
+            updateGoldDisplay();
+        }
         
         await loadStashHubData();
         displayQuests();

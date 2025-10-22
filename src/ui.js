@@ -69,14 +69,32 @@ async function refreshPlayerGold() {
             .single();
         
         if (profile) {
-            const goldDisplay = document.getElementById('gold-amount');
-            if (goldDisplay) {
-                goldDisplay.textContent = profile.gold || 0;
+            // Update currentUser profile
+            if (currentUser && currentUser.profile) {
+                currentUser.profile.gold = profile.gold || 0;
             }
+            
+            // Update all gold displays
+            updateGoldDisplay();
         }
     } catch (error) {
         console.error('Error refreshing gold:', error);
     }
+}
+
+// ----------------------------------------
+// Update Gold Display (Global)
+// ----------------------------------------
+function updateGoldDisplay() {
+    const menuGold = document.getElementById('gold-amount');
+    const stashGold = document.getElementById('stashhub-gold');
+    const charMgmtGold = document.getElementById('char-mgmt-gold');
+    
+    const currentGold = currentUser?.profile?.gold || 0;
+    
+    if (menuGold) menuGold.textContent = currentGold;
+    if (stashGold) stashGold.textContent = currentGold;
+    if (charMgmtGold) charMgmtGold.textContent = currentGold;
 }
 
 function showMatchmakingScreen() {
@@ -184,30 +202,55 @@ function updateLobbyUI() {
         currentLobby.lobby_players.forEach(player => {
             const playerDiv = document.createElement('div');
             playerDiv.className = 'lobby-player';
+            
+            // Check if this is an AI player
+            const isAi = player.is_ai || player.user_id === null;
+            const playerName = isAi ? `🤖 ${player.username}` : player.username;
+            
             playerDiv.innerHTML = `
-                <span class="lobby-player-name">${player.username}</span>
+                <span class="lobby-player-name">${playerName}</span>
                 ${player.user_id === currentLobby.host_id ? '<span class="host-badge">HOST</span>' : ''}
                 ${player.user_id === currentUser.id ? '<span class="you-badge">YOU</span>' : ''}
+                ${isAi ? '<span class="ai-badge">AI</span>' : ''}
             `;
             playersList.appendChild(playerDiv);
         });
     }
     
-    // Add AI placeholder slots
-    const aiCount = GAME_CONFIG.MAX_PLAYERS - currentLobby.player_count;
-    for (let i = 0; i < aiCount; i++) {
-        const aiDiv = document.createElement('div');
-        aiDiv.className = 'lobby-player ai-player';
-        aiDiv.innerHTML = `<span class="lobby-player-name">🤖 AI Slot ${i + 1}</span>`;
-        playersList.appendChild(aiDiv);
+    // Add empty slot placeholders only if there are still empty slots
+    const currentPlayerCount = currentLobby.lobby_players ? currentLobby.lobby_players.length : 0;
+    const emptySlots = GAME_CONFIG.MAX_PLAYERS - currentPlayerCount;
+    
+    for (let i = 0; i < emptySlots; i++) {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'lobby-player empty-slot';
+        emptyDiv.innerHTML = `<span class="lobby-player-name">⚪ Empty Slot ${i + 1}</span>`;
+        playersList.appendChild(emptyDiv);
     }
     
-    // Show/hide start button (only for host)
+    // Show/hide start button and add AI button (only for host)
     const startBtn = document.getElementById('start-game-btn');
-    if (currentLobby.host_id === currentUser.id && currentLobby.player_count >= GAME_CONFIG.MIN_PLAYERS_FOR_START) {
-        startBtn.style.display = 'inline-block';
+    const addAiBtn = document.getElementById('add-ai-btn');
+    
+    if (currentLobby.host_id === currentUser.id) {
+        if (currentLobby.player_count >= GAME_CONFIG.MIN_PLAYERS_FOR_START) {
+            startBtn.style.display = 'inline-block';
+        } else {
+            startBtn.style.display = 'none';
+        }
+        
+        // Show add AI button if there are empty slots
+        const currentPlayerCount = currentLobby.lobby_players ? currentLobby.lobby_players.length : 0;
+        const emptySlots = GAME_CONFIG.MAX_PLAYERS - currentPlayerCount;
+        if (emptySlots > 0) {
+            addAiBtn.style.display = 'inline-block';
+            addAiBtn.textContent = `🤖 Add ${emptySlots} AI Player${emptySlots > 1 ? 's' : ''}`;
+        } else {
+            addAiBtn.style.display = 'none';
+        }
     } else {
         startBtn.style.display = 'none';
+        addAiBtn.style.display = 'none';
     }
 }
 
@@ -333,10 +376,7 @@ async function showCharacterManagement() {
     
     // Update gold display
     await refreshPlayerGold();
-    const goldDisplay = document.getElementById('char-mgmt-gold');
-    if (goldDisplay) {
-        goldDisplay.textContent = currentUser.profile?.gold || 0;
-    }
+    updateGoldDisplay();
     
     clearLog();
     addToLog('👤 Loading your characters...', 'info');
@@ -468,6 +508,14 @@ async function setActiveCharacter(characterId) {
         
         // Update current user profile
         currentUser.profile.active_character_id = characterId;
+        
+        // Refresh gold from database to ensure consistency
+        await refreshPlayerGold();
+        
+        // Update gold display in all parts of the app
+        if (typeof updateGoldDisplay === 'function') {
+            updateGoldDisplay();
+        }
         
         addToLog('✅ Active character updated!', 'success');
         await loadUserCharacters(); // Refresh the list
