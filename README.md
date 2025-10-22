@@ -1,130 +1,87 @@
-# 🏰 Shadows of the Dungeon
+# 🎮 Shadow Dungeon
 
-A social deception extraction roguelite built with vanilla HTML, CSS, and JavaScript.
+En multiplayer dungeon crawler med karaktärsskapande, items och strategisk utforskning!
 
-## 🎮 Game Overview
-
-**Shadows of the Dungeon** is a browser-based game where players (and AI companions) explore a dangerous dungeon, collecting loot while trying to survive. But beware—some adventurers are corrupted and work against the group!
-
-### Core Gameplay Loop
-
-1. **Start Phase** - Roles are assigned (Innocent/Corrupted)
-2. **Exploration Phase** - Search for treasures and items
-3. **Darkness Phase** - Corrupted players attack in secret
-4. **Discussion Phase** - Vote to eliminate suspects
-5. **Extraction Phase** - Escape with loot or stay for more
-
-## 🚀 Quick Start
-
-### Play Locally
-
-Simply open `index.html` in your web browser. No build process or dependencies required!
-
-```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/shadows-of-the-dungeon.git
-cd shadows-of-the-dungeon
-
-# Open in browser (Windows)
-start index.html
-
-# Open in browser (Mac)
-open index.html
-
-# Open in browser (Linux)
-xdg-open index.html
-```
-
-## 🌐 Live Demo
-
-**Deployed on Netlify**: [Add your Netlify URL here after deployment]
-
-## 🎯 Features
-
-- ✅ **Single-player mode** with AI companions
-- ✅ **Interactive phases** with strategic decisions
-- ✅ **Loot system** with 10 unique items
-- ✅ **Item tooltips** - hover to see effects
-- ✅ **Dark fantasy UI** with smooth animations
-- ✅ **Corrupted gameplay** - choose your victims!
-- ✅ **Multi-round support** - survive as long as you can
-
-## 🛠️ Tech Stack
-
-- **Frontend**: Vanilla JavaScript (ES6+)
-- **Styling**: Pure CSS3 (no frameworks)
-- **Deployment**: Netlify
-- **Future Backend**: Supabase (for multiplayer)
-
-## 📦 Project Structure
+## 📁 Projektstruktur
 
 ```
-shadows-of-the-dungeon/
-├── index.html          # Main HTML structure
-├── style.css           # Game styling
-├── main.js             # Core game logic
-├── README.md           # This file
-└── .gitignore          # Git ignore rules
+ShadowDungeon/
+├── src/                    # JavaScript källkod
+│   ├── app.js             # App initialization
+│   ├── auth.js            # Authentication system
+│   ├── character_creation.js  # Character creation system
+│   ├── config.js          # Supabase configuration
+│   ├── dungeon_system.js  # Dungeon exploration
+│   ├── item_usage.js      # Item effects in game
+│   ├── main.js            # Core game logic
+│   ├── matchmaking.js     # Multiplayer lobbies
+│   ├── stashhub.js        # Items and quests
+│   └── ui.js              # UI management
+├── sql/                   # Database scripts
+│   ├── supabase_schema.sql        # Base database schema
+│   ├── update_schema_stashhub.sql # Items and quests
+│   ├── character_creation_schema.sql # Character system
+│   ├── seed_items_fixed.sql       # Example items (FIXED)
+│   └── [other SQL files]          # Various fixes and utilities
+├── docs/                  # Documentation
+│   ├── FEATURES_GUIDE.md          # Complete features guide
+│   ├── DEPLOYMENT_CHECKLIST_NEW.md # Deployment guide
+│   └── [other .md files]          # Various documentation
+├── index.html             # Main HTML file
+├── style.css              # All styles
+└── README.md              # This file
 ```
 
-## 🎲 Game Items
+## 🚀 Snabbstart
 
-| Item | Rarity | Effect |
-|------|--------|--------|
-| Ancient Orb | Rare | Reveal a player's role |
-| Shadow Dagger | Rare | Kill in darkness |
-| Healing Elixir | Uncommon | Survive one attack |
-| Cursed Amulet | Legendary | Double loot, reveal role |
-| Dragon Gem | Legendary | Worth 500 gold |
-| Blood Stone | Rare | Mark a target |
-| Magic Scroll | Uncommon | Reveal event info |
-| Golden Chalice | Common | Worth 100 gold |
-| Silver Coins | Common | Worth 20 gold |
-| Rusty Key | Common | Unknown purpose |
+### 1. Database Setup
+Kör dessa SQL-filer i Supabase SQL Editor (i ordning):
 
-## 🔮 Future Plans
+1. `sql/supabase_schema.sql` - Base schema
+2. `sql/update_schema_stashhub.sql` - Items and quests
+3. `sql/character_creation_schema.sql` - Character system
+4. `sql/seed_items_fixed.sql` - Example items ⭐ **FIXED VERSION**
 
-### Multiplayer (with Supabase)
-- Real-time player synchronization
-- Lobby system
-- Chat functionality
-- Leaderboards
+### 2. Configuration
+Uppdatera `src/config.js` med dina Supabase credentials.
 
-### Graphics Enhancement
-- Phaser.js integration
-- 2D dungeon visualization
-- Fog of war system
-- Character animations
+### 3. Deploy
+Deploya till Netlify eller kör lokalt.
 
-### Gameplay Expansion
-- More roles (Detective, Jester, Traitor)
-- Item effects implementation
-- Voice chat (proximity-based)
-- Multiple dungeons/maps
+## ✨ Features
 
-## 🤝 Contributing
+- 🎭 **Character Creation** - 4 klasser med stats
+- 📦 **Item System** - 31+ items med in-game effects
+- 🗺️ **Dungeon Exploration** - Dynamic 6-10 room dungeons
+- ⚔️ **Monster Encounters** - Boss fights och mindre monster
+- 🔐 **Key/Portal System** - Hitta nyckeln och fly
+- 🌐 **Multi-Session** - Flera spelare samtidigt
+- 📊 **Stats Matter** - Styrka, smidighet etc. påverkar gameplay
 
-Contributions are welcome! Feel free to:
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## 🐛 Felsökning
 
-## 📄 License
+### "Foreign key constraint" error
+Använd `sql/seed_items_fixed.sql` istället för den gamla versionen.
 
-This project is open source and available under the MIT License.
+### "Items visas inte"
+Kontrollera att du körde `seed_items_fixed.sql`.
 
-## 👨‍💻 Author
+### "Character creation fungerar inte"
+Kontrollera att du körde `character_creation_schema.sql`.
 
-Created with ❤️ by [Your Name]
+## 📖 Dokumentation
 
-## 🙏 Acknowledgments
+- `docs/FEATURES_GUIDE.md` - Komplett guide för alla features
+- `docs/DEPLOYMENT_CHECKLIST_NEW.md` - Deployment guide
 
-- Inspired by games like Among Us, Lethal Company, and classic dungeon crawlers
-- Dark fantasy aesthetic inspired by Dark Souls and Diablo
+## 🎯 Nästa Steg
+
+1. Kör SQL-filerna i rätt ordning
+2. Testa character creation
+3. Testa items system
+4. Testa dungeon exploration
+5. Deploya till Netlify
 
 ---
 
-**Enjoy the shadows... if you dare.** 🗡️
-
+**Lycka till i dungeonen! 🗡️**
