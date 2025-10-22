@@ -1856,10 +1856,32 @@ button:disabled {
     margin-top: 20px;
 }
 
+.active-character-badge {
+    background: #51cf66;
+    color: #000;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 0.9rem;
+    display: inline-block;
+}
+
 .no-characters {
     text-align: center;
     padding: 40px;
     color: #888;
+    font-size: 1.1rem;
+    grid-column: 1 / -1;
+}
+
+.no-characters h3 {
+    color: #d4af37;
+    margin: 10px 0;
+    font-size: 1.5rem;
+}
+
+.no-characters p {
+    margin: 10px 0;
     font-size: 1.1rem;
 }
 

@@ -400,7 +400,11 @@ async function loadUserCharacters() {
             characterList.innerHTML = `
                 <div class="no-characters">
                     <span class="emoji">👤</span>
-                    Du har inga karaktärer än. Skapa din första karaktär!
+                    <h3>Inga karaktärer än</h3>
+                    <p>Du har inga karaktärer än. Skapa din första karaktär för att komma igång!</p>
+                    <button onclick="showCreateNewCharacter()" class="primary-btn" style="margin-top: 15px;">
+                        ✨ Skapa Din Första Karaktär
+                    </button>
                 </div>
             `;
             return;
@@ -488,7 +492,7 @@ function createCharacterCard(character) {
         </div>
         
         <div class="character-actions">
-            ${!isActive ? `<button class="character-action-btn primary" onclick="setActiveCharacter(${character.id})">Välj som Aktiv</button>` : ''}
+            ${!isActive ? `<button class="character-action-btn primary" onclick="setActiveCharacter(${character.id})">Välj som Aktiv</button>` : '<span class="active-character-badge">✅ Aktiv Karaktär</span>'}
             <button class="character-action-btn" onclick="viewCharacterDetails(${character.id})">Detaljer</button>
             <button class="character-action-btn danger" onclick="deleteCharacter(${character.id}, '${character.character_name}')">Ta Bort</button>
         </div>
@@ -532,6 +536,9 @@ async function deleteCharacter(characterId, characterName) {
     }
     
     try {
+        // Check if this is the active character
+        const isActiveCharacter = currentUser.profile?.active_character_id === characterId;
+        
         const { error } = await supabase
             .from('characters')
             .delete()
@@ -540,7 +547,25 @@ async function deleteCharacter(characterId, characterName) {
         
         if (error) throw error;
         
-        addToLog(`✅ Character "${characterName}" deleted!`, 'success');
+        // If we deleted the active character, clear the active character
+        if (isActiveCharacter) {
+            const { error: clearError } = await supabase
+                .from('profiles')
+                .update({ active_character_id: null })
+                .eq('id', currentUser.id);
+            
+            if (clearError) throw clearError;
+            
+            // Update local profile
+            if (currentUser && currentUser.profile) {
+                currentUser.profile.active_character_id = null;
+            }
+            
+            addToLog(`✅ Active character "${characterName}" deleted!`, 'success');
+        } else {
+            addToLog(`✅ Character "${characterName}" deleted!`, 'success');
+        }
+        
         await loadUserCharacters(); // Refresh the list
         
     } catch (error) {
@@ -550,8 +575,42 @@ async function deleteCharacter(characterId, characterName) {
 }
 
 function viewCharacterDetails(characterId) {
-    // For now, just show a message. Could be expanded to show detailed stats, equipment, etc.
-    addToLog('📊 Character details view - Coming soon!', 'info');
+    // Find the character in the current list
+    const characterList = document.getElementById('character-list');
+    if (!characterList) return;
+    
+    const characterCards = characterList.querySelectorAll('.character-card');
+    let character = null;
+    
+    for (const card of characterCards) {
+        const deleteBtn = card.querySelector(`button[onclick*="deleteCharacter('${characterId}'"]`);
+        if (deleteBtn) {
+            // Extract character info from the card
+            const nameElement = card.querySelector('h3');
+            const classElement = card.querySelector('.character-class');
+            const statsElements = card.querySelectorAll('.stat-item');
+            
+            if (nameElement && classElement) {
+                const name = nameElement.textContent;
+                const className = classElement.textContent;
+                
+                addToLog(`📊 Character Details: ${name}`, 'info');
+                addToLog(`🏷️ Class: ${className}`, 'info');
+                
+                // Show stats
+                statsElements.forEach(stat => {
+                    const label = stat.querySelector('.stat-label');
+                    const value = stat.querySelector('.stat-value');
+                    if (label && value) {
+                        addToLog(`${label.textContent}: ${value.textContent}`, 'info');
+                    }
+                });
+                
+                addToLog('💡 Use "Välj som Aktiv" to switch to this character', 'info');
+            }
+            break;
+        }
+    }
 }
 
 function showCreateNewCharacter() {
