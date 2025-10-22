@@ -60,6 +60,11 @@ class GameState {
 // ============================================
 
 let game = new GameState();
+let gameTimers = {
+    discussion: null,
+    voting: null,
+    exploration: null
+};
 
 // ============================================
 // UTILITY FUNCTIONS
@@ -203,6 +208,27 @@ function clearActionButtons() {
     document.getElementById("extraction-buttons").innerHTML = "";
     document.getElementById("darkness-buttons").innerHTML = "";
     hideMainButton();
+    
+    // Clear any active timers
+    if (gameTimers.discussion) {
+        clearInterval(gameTimers.discussion);
+        gameTimers.discussion = null;
+    }
+    if (gameTimers.voting) {
+        clearInterval(gameTimers.voting);
+        gameTimers.voting = null;
+    }
+    if (gameTimers.exploration) {
+        clearInterval(gameTimers.exploration);
+        gameTimers.exploration = null;
+    }
+    
+    // Remove timer elements
+    const timers = ['discussion-timer', 'voting-timer', 'exploration-timer'];
+    timers.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.remove();
+    });
 }
 
 // ============================================
@@ -274,6 +300,17 @@ async function startGame() {
         if (!player.role) player.role = "Innocent";
     });
     
+    // Ensure player character is not corrupted on first game (tutorial)
+    if (game.playerCharacter.role === "Corrupted") {
+        // Find an innocent to swap with
+        const innocentPlayer = game.players.find(p => p.role === "Innocent" && !p.isPlayer);
+        if (innocentPlayer) {
+            innocentPlayer.role = "Corrupted";
+            game.playerCharacter.role = "Innocent";
+            addToLog("🎓 As a new player, you start as Innocent to learn the game!", "info");
+        }
+    }
+    
     updatePhaseTitle("📜 Start Phase - Dungeon Awakens");
     updateRoundInfo();
     updatePlayersList();
@@ -306,8 +343,27 @@ function explorationPhase() {
     updatePhaseTitle("🔦 Exploration Phase - Seeking Treasures");
     addToLog("─────────────────────────────", "info");
     addToLog("🔦 You spread out through the dungeon searching for treasures...", "info");
+    addToLog("⏰ You have 30 seconds to explore...", "info");
     
     updatePlayersList();
+    
+    // Start exploration timer
+    let timeLeft = 30;
+    const timerElement = document.createElement('div');
+    timerElement.id = 'exploration-timer';
+    timerElement.style.cssText = 'text-align: center; font-size: 1.2rem; color: #ffd700; margin: 10px 0; font-weight: bold;';
+    document.getElementById('event-log').appendChild(timerElement);
+    
+    gameTimers.exploration = setInterval(() => {
+        timeLeft--;
+        timerElement.textContent = `⏰ Exploration Time: ${timeLeft}s`;
+        
+        if (timeLeft <= 0) {
+            clearInterval(gameTimers.exploration);
+            timerElement.remove();
+            showMainButton("Darkness Falls...", darknessPhase);
+        }
+    }, 1000);
     
     // Simulate exploration events for each player
     const alivePlayers = game.players.filter(p => p.alive);
@@ -317,11 +373,6 @@ function explorationPhase() {
             exploreForPlayer(player);
         }, 500 * (index + 1));
     });
-    
-    // After all explorations, move to darkness phase
-    setTimeout(() => {
-        showMainButton("Darkness Falls...", darknessPhase);
-    }, 500 * (alivePlayers.length + 2));
 }
 
 function exploreForPlayer(player) {
@@ -517,9 +568,50 @@ function discussionPhase() {
     updatePhaseTitle("🗣️ Discussion Phase - Who Lies?");
     addToLog("─────────────────────────────", "info");
     addToLog("🗣️ You gather to discuss what happened...", "info");
-    addToLog("🔍 Someone here is corrupted. Vote to eliminate a suspect.", "warning");
+    addToLog("🔍 Someone here is corrupted. Discuss and vote to eliminate a suspect.", "warning");
+    addToLog("⏰ You have 60 seconds to discuss before voting begins...", "info");
     
     updatePlayersList();
+    
+    // Start discussion timer
+    let discussionTime = 60;
+    const timerElement = document.createElement('div');
+    timerElement.id = 'discussion-timer';
+    timerElement.style.cssText = 'text-align: center; font-size: 1.2rem; color: #ffd700; margin: 10px 0; font-weight: bold;';
+    document.getElementById('event-log').appendChild(timerElement);
+    
+    gameTimers.discussion = setInterval(() => {
+        discussionTime--;
+        timerElement.textContent = `⏰ Discussion Time: ${discussionTime}s`;
+        
+        if (discussionTime <= 0) {
+            clearInterval(gameTimers.discussion);
+            timerElement.remove();
+            startVotingPhase();
+        }
+    }, 1000);
+    
+    // Add discussion tips
+    addToLog("💡 Discussion Tips:", "info");
+    addToLog("• Share what you saw during exploration", "info");
+    addToLog("• Look for suspicious behavior", "info");
+    addToLog("• Consider who might be lying", "info");
+    addToLog("• Remember: Corrupted players will try to mislead you", "info");
+}
+
+// ----------------------------------------
+// VOTING PHASE
+// ----------------------------------------
+function startVotingPhase() {
+    clearActionButtons();
+    game.phase = "voting";
+    
+    updatePhaseTitle("🗳️ Voting Phase - Choose Wisely");
+    addToLog("─────────────────────────────", "info");
+    addToLog("🗳️ Discussion time is over! Now vote to eliminate a suspect.", "warning");
+    addToLog("⏰ You have 30 seconds to vote...", "info");
+    
+    const alivePlayers = game.players.filter(p => p.alive);
     
     // Create vote buttons
     const voteContainer = document.getElementById("vote-buttons");
@@ -544,12 +636,41 @@ function discussionPhase() {
     skipBtn.textContent = "Skip Vote";
     skipBtn.onclick = () => castVote(null);
     voteContainer.appendChild(skipBtn);
+    
+    // Start voting timer
+    let votingTime = 30;
+    const timerElement = document.createElement('div');
+    timerElement.id = 'voting-timer';
+    timerElement.style.cssText = 'text-align: center; font-size: 1.2rem; color: #ff6b6b; margin: 10px 0; font-weight: bold;';
+    document.getElementById('event-log').appendChild(timerElement);
+    
+    gameTimers.voting = setInterval(() => {
+        votingTime--;
+        timerElement.textContent = `⏰ Voting Time: ${votingTime}s`;
+        
+        if (votingTime <= 0) {
+            clearInterval(gameTimers.voting);
+            timerElement.remove();
+            // Auto-skip vote if no choice made
+            if (game.playerCharacter.vote === null) {
+                addToLog("⏰ Time's up! You automatically skip voting.", "warning");
+                castVote(null);
+            }
+        }
+    }, 1000);
 }
 
 function castVote(targetPlayer) {
     if (!game.playerCharacter.alive) {
         addToLog("☠️ You are dead and cannot vote.", "warning");
         return;
+    }
+    
+    // Clear voting timer
+    if (gameTimers.voting) {
+        clearInterval(gameTimers.voting);
+        const timerElement = document.getElementById('voting-timer');
+        if (timerElement) timerElement.remove();
     }
     
     game.playerCharacter.vote = targetPlayer ? targetPlayer.id : null;
