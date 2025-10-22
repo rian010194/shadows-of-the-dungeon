@@ -335,11 +335,12 @@ async function confirmCharacterCreation() {
             currentUser.profile = profile;
         }
         
-        // Show success and go to menu
+        // Show success and go to character management
         addToLog(`✨ Karaktär "${characterName}" (${selectedClass.display_name}) skapad!`, 'success');
         addToLog(`🎁 Du fick en ${selectedClass.starter_item_name} som startföremål!`, 'success');
         
-        showMenuScreen();
+        // Go to character management to see all characters
+        showCharacterManagement();
         
     } catch (error) {
         console.error('Character creation error:', error);

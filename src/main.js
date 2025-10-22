@@ -37,6 +37,9 @@ class GameState {
         this.portalUnlocked = false;
         this.eventLog = [];
         this.playerCharacter = null; // Reference to the human player
+        this.timeOfDay = "day"; // "day" or "night"
+        this.dayNightVotes = {}; // Track votes for day/night cycle
+        this.currentDay = 1;
     }
 
     initializeLootPool() {
@@ -209,6 +212,12 @@ function clearActionButtons() {
     document.getElementById("darkness-buttons").innerHTML = "";
     hideMainButton();
     
+    // Hide chat container when not in dungeon
+    const chatContainer = document.getElementById('chat-container');
+    if (chatContainer) {
+        chatContainer.style.display = 'none';
+    }
+    
     // Clear any active timers
     if (gameTimers.discussion) {
         clearInterval(gameTimers.discussion);
@@ -224,7 +233,7 @@ function clearActionButtons() {
     }
     
     // Remove timer elements
-    const timers = ['discussion-timer', 'voting-timer', 'exploration-timer'];
+    const timers = ['discussion-timer', 'voting-timer', 'exploration-timer', 'day-night-timer'];
     timers.forEach(id => {
         const element = document.getElementById(id);
         if (element) element.remove();
@@ -329,7 +338,7 @@ async function startGame() {
     }
     
     setTimeout(() => {
-        showMainButton("Explore the Dungeon", explorationPhase);
+        showMainButton("Börja äventyret", dayNightVotingPhase);
     }, 1000);
 }
 
@@ -361,7 +370,7 @@ function explorationPhase() {
         if (timeLeft <= 0) {
             clearInterval(gameTimers.exploration);
             timerElement.remove();
-            showMainButton("Darkness Falls...", darknessPhase);
+            showMainButton("Rösta om nästa fas...", dayNightVotingPhase);
         }
     }, 1000);
     
@@ -405,16 +414,138 @@ function exploreForPlayer(player) {
 }
 
 // ----------------------------------------
+// DAY/NIGHT VOTING PHASE
+// ----------------------------------------
+function dayNightVotingPhase() {
+    clearActionButtons();
+    game.phase = "day_night_voting";
+    
+    updatePhaseTitle(`🗳️ Runda ${game.round} - Röstning om tid på dygnet`);
+    addToLog("─────────────────────────────", "info");
+    addToLog(`🌅 Det är för närvarande ${game.timeOfDay === "day" ? "dag" : "natt"} (Dag ${game.currentDay})`, "info");
+    addToLog("🗳️ Rösta om vad som ska hända härnäst:", "info");
+    addToLog("• 🌅 Fortsätt med dag - Utforska och samla skatter", "info");
+    addToLog("• 🌙 Byt till natt - Mörkerfasen börjar", "info");
+    
+    // Reset votes
+    game.dayNightVotes = {};
+    
+    // Create voting buttons
+    const voteContainer = document.getElementById("vote-buttons");
+    voteContainer.innerHTML = "<p style='color: #d4af37; margin-bottom: 10px;'>Vad vill du rösta för?</p>";
+    
+    const dayBtn = document.createElement("button");
+    dayBtn.className = "vote-btn";
+    dayBtn.textContent = "🌅 Fortsätt Dag";
+    dayBtn.onclick = () => castDayNightVote("day");
+    voteContainer.appendChild(dayBtn);
+    
+    const nightBtn = document.createElement("button");
+    nightBtn.className = "vote-btn";
+    nightBtn.textContent = "🌙 Byt till Natt";
+    nightBtn.onclick = () => castDayNightVote("night");
+    voteContainer.appendChild(nightBtn);
+    
+    // Start voting timer
+    let votingTime = 30;
+    const timerElement = document.createElement('div');
+    timerElement.id = 'day-night-timer';
+    timerElement.style.cssText = 'text-align: center; font-size: 1.2rem; color: #ffd700; margin: 10px 0; font-weight: bold;';
+    document.getElementById('event-log').appendChild(timerElement);
+    
+    gameTimers.voting = setInterval(() => {
+        votingTime--;
+        timerElement.textContent = `⏰ Röstningstid: ${votingTime}s`;
+        
+        if (votingTime <= 0) {
+            clearInterval(gameTimers.voting);
+            timerElement.remove();
+            // Auto-vote for day if no choice made
+            if (!game.dayNightVotes[game.playerCharacter.id]) {
+                addToLog("⏰ Tiden är slut! Du röstar automatiskt för dag.", "warning");
+                castDayNightVote("day");
+            }
+        }
+    }, 1000);
+}
+
+function castDayNightVote(vote) {
+    if (!game.playerCharacter.alive) {
+        addToLog("☠️ Du är död och kan inte rösta.", "warning");
+        return;
+    }
+    
+    // Clear voting timer
+    if (gameTimers.voting) {
+        clearInterval(gameTimers.voting);
+        const timerElement = document.getElementById('day-night-timer');
+        if (timerElement) timerElement.remove();
+    }
+    
+    game.dayNightVotes[game.playerCharacter.id] = vote;
+    
+    const voteText = vote === "day" ? "dag" : "natt";
+    addToLog(`🗳️ Du röstar för ${voteText}.`, "info");
+    
+    clearActionButtons();
+    
+    // Simulate other players voting
+    setTimeout(() => {
+        simulateDayNightVoting();
+    }, 1000);
+}
+
+function simulateDayNightVoting() {
+    addToLog("🤔 De andra äventyrare röstar...", "info");
+    
+    const alivePlayers = game.players.filter(p => p.alive);
+    
+    // AI players vote
+    alivePlayers.forEach(player => {
+        if (player.isPlayer || game.dayNightVotes[player.id]) return;
+        
+        // AI voting logic - corrupted prefer night, innocents prefer day
+        const vote = player.role === "Corrupted" ? 
+            (Math.random() < 0.7 ? "night" : "day") : 
+            (Math.random() < 0.6 ? "day" : "night");
+        
+        game.dayNightVotes[player.id] = vote;
+    });
+    
+    // Count votes
+    const dayVotes = Object.values(game.dayNightVotes).filter(v => v === "day").length;
+    const nightVotes = Object.values(game.dayNightVotes).filter(v => v === "night").length;
+    
+    setTimeout(() => {
+        addToLog(`📊 Röstresultat: ${dayVotes} för dag, ${nightVotes} för natt`, "info");
+        
+        if (nightVotes > dayVotes) {
+            game.timeOfDay = "night";
+            addToLog("🌙 Majoriteten röstar för natt! Mörkret faller...", "warning");
+            setTimeout(() => {
+                darknessPhase();
+            }, 2000);
+        } else {
+            game.timeOfDay = "day";
+            addToLog("🌅 Majoriteten röstar för dag! Fortsätter med utforskning...", "success");
+            setTimeout(() => {
+                explorationPhase();
+            }, 2000);
+        }
+    }, 2000);
+}
+
+// ----------------------------------------
 // DARKNESS PHASE
 // ----------------------------------------
 function darknessPhase() {
     clearActionButtons();
     game.phase = "darkness";
     
-    updatePhaseTitle("🌑 Darkness Phase - Terror Strikes");
+    updatePhaseTitle("🌑 Mörkerfas - Skräcken slår till");
     addToLog("─────────────────────────────", "info");
-    addToLog("🌑 Darkness falls upon you... torches extinguish one by one.", "warning");
-    addToLog("💀 Something moves in the darkness...", "warning");
+    addToLog("🌑 Mörkret faller över er... facklor slocknar en efter en.", "warning");
+    addToLog("💀 Något rör sig i mörkret...", "warning");
     
     // Check if player is corrupted and alive
     if (game.playerCharacter.alive && game.playerCharacter.role === "Corrupted") {
@@ -546,7 +677,7 @@ function performDarknessActions() {
         }
         
         setTimeout(() => {
-            showMainButton("Gather for Discussion", discussionPhase);
+            showMainButton("Samla för diskussion", discussionPhase);
         }, 1500);
     }, 1000 * (corruptedPlayers.length + 1));
 }
@@ -745,7 +876,10 @@ function simulateVoting() {
         game.players.forEach(p => p.vote = null);
         
         setTimeout(() => {
-            checkWinConditions() || showMainButton("Continue to Portal", extractionPhase);
+            if (!checkWinConditions()) {
+                game.currentDay++;
+                showMainButton("Nästa dag börjar...", dayNightVotingPhase);
+            }
         }, 2000);
     }, 2000);
 }

@@ -173,6 +173,9 @@
             </div>
 
             <div class="menu-buttons">
+                <button onclick="showCharacterManagement()" class="primary-btn character-btn">
+                    👤 Karaktärer
+                </button>
                 <button onclick="showStashHub()" class="primary-btn stash-btn">
                     🎒 Stash Hub
                 </button>
@@ -194,6 +197,33 @@
             </div>
 
             <div id="event-log"></div>
+        </div>
+
+        <!-- CHARACTER MANAGEMENT SCREEN -->
+        <div id="character-management-screen" class="screen" style="display: none;">
+            <h2>👤 Karaktärshantering</h2>
+            
+            <div class="character-management-header">
+                <div class="gold-display-large">
+                    💰 <span id="char-mgmt-gold">0</span> Gold
+                </div>
+                <p class="character-limit-info">Du kan ha upp till 3 karaktärer per konto</p>
+            </div>
+
+            <div id="character-list" class="character-list">
+                <!-- Characters will be listed here -->
+            </div>
+
+            <div id="event-log"></div>
+
+            <div class="character-management-actions">
+                <button onclick="showCreateNewCharacter()" class="primary-btn" id="create-character-btn">
+                    ✨ Skapa Ny Karaktär
+                </button>
+                <button onclick="showMenuScreen()" class="secondary-btn">
+                    ⬅️ Tillbaka till Meny
+                </button>
+            </div>
         </div>
 
         <!-- STASH HUB SCREEN -->
@@ -307,6 +337,16 @@
                 <div id="dungeon-map-container" style="display: none;">
                     <h3 style="color: #d4af37; text-align: center; margin-bottom: 15px;">🗺️ Dungeon Karta</h3>
                     <div id="dungeon-map"></div>
+                </div>
+
+                <!-- Chat System -->
+                <div id="chat-container" style="display: none;">
+                    <h3 style="color: #d4af37; text-align: center; margin-bottom: 15px;">💬 Rum Chat</h3>
+                    <div id="chat-messages" class="chat-messages"></div>
+                    <div class="chat-input-container">
+                        <input type="text" id="chat-input" placeholder="Skriv meddelande..." maxlength="200">
+                        <button id="chat-send-btn" onclick="sendChatMessage()">Skicka</button>
+                    </div>
                 </div>
 
                 <!-- Players Area -->

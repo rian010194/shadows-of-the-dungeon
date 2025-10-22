@@ -8,6 +8,7 @@
 function hideAllScreens() {
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('character-creation-screen').style.display = 'none';
+    document.getElementById('character-management-screen').style.display = 'none';
     document.getElementById('menu-screen').style.display = 'none';
     document.getElementById('stashhub-screen').style.display = 'none';
     document.getElementById('lobby-browser-screen').style.display = 'none';
@@ -316,5 +317,204 @@ async function showCreateLobby() {
     addToLog('🏰 Creating your lobby...', 'info');
     
     await createLobbyManual();
+}
+
+// ----------------------------------------
+// Character Management Functions
+// ----------------------------------------
+async function showCharacterManagement() {
+    if (!currentUser) {
+        addToLog('❌ Please sign in first', 'warning');
+        return;
+    }
+    
+    hideAllScreens();
+    document.getElementById('character-management-screen').style.display = 'block';
+    
+    // Update gold display
+    await refreshPlayerGold();
+    const goldDisplay = document.getElementById('char-mgmt-gold');
+    if (goldDisplay) {
+        goldDisplay.textContent = currentUser.profile?.gold || 0;
+    }
+    
+    clearLog();
+    addToLog('👤 Loading your characters...', 'info');
+    await loadUserCharacters();
+}
+
+async function loadUserCharacters() {
+    try {
+        const { data: characters, error } = await supabase
+            .from('characters')
+            .select('*, character_classes(*)')
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        const characterList = document.getElementById('character-list');
+        if (!characterList) return;
+        
+        if (!characters || characters.length === 0) {
+            characterList.innerHTML = `
+                <div class="no-characters">
+                    <span class="emoji">👤</span>
+                    Du har inga karaktärer än. Skapa din första karaktär!
+                </div>
+            `;
+            return;
+        }
+        
+        characterList.innerHTML = '';
+        
+        characters.forEach(character => {
+            const charCard = createCharacterCard(character);
+            characterList.appendChild(charCard);
+        });
+        
+        // Update create button state
+        const createBtn = document.getElementById('create-character-btn');
+        if (createBtn) {
+            createBtn.disabled = characters.length >= 3;
+            if (characters.length >= 3) {
+                createBtn.textContent = 'Max 3 karaktärer';
+                createBtn.style.opacity = '0.5';
+            }
+        }
+        
+        addToLog(`✅ Loaded ${characters.length} character(s)`, 'success');
+        
+    } catch (error) {
+        console.error('Error loading characters:', error);
+        addToLog(`❌ Error loading characters: ${error.message}`, 'warning');
+    }
+}
+
+function createCharacterCard(character) {
+    const card = document.createElement('div');
+    card.className = 'character-card';
+    
+    // Check if this is the active character
+    const isActive = currentUser.profile?.active_character_id === character.id;
+    if (isActive) {
+        card.classList.add('active');
+    }
+    
+    const classEmojis = {
+        'mage': '🔮',
+        'warrior': '⚔️',
+        'rogue': '🗡️',
+        'seer': '🔯'
+    };
+    
+    const classEmoji = classEmojis[character.character_class] || '👤';
+    const className = character.character_classes?.display_name || character.character_class;
+    
+    card.innerHTML = `
+        <div class="character-header">
+            <div class="character-emoji">${classEmoji}</div>
+            <div class="character-info">
+                <h3>${character.character_name}</h3>
+                <p class="character-class">${className}</p>
+            </div>
+        </div>
+        
+        <div class="character-stats">
+            <div class="stat-item">
+                <span class="stat-label">💪 Styrka</span>
+                <span class="stat-value">${character.strength}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">🧠 Intelligens</span>
+                <span class="stat-value">${character.intellect}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">⚡ Smidighet</span>
+                <span class="stat-value">${character.agility}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">❤️ Vitalitet</span>
+                <span class="stat-value">${character.vitality}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">👁️ Visdom</span>
+                <span class="stat-value">${character.wisdom}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">🎮 Spelade</span>
+                <span class="stat-value">${character.games_played || 0}</span>
+            </div>
+        </div>
+        
+        <div class="character-actions">
+            ${!isActive ? `<button class="character-action-btn primary" onclick="setActiveCharacter(${character.id})">Välj som Aktiv</button>` : ''}
+            <button class="character-action-btn" onclick="viewCharacterDetails(${character.id})">Detaljer</button>
+            <button class="character-action-btn danger" onclick="deleteCharacter(${character.id}, '${character.character_name}')">Ta Bort</button>
+        </div>
+    `;
+    
+    return card;
+}
+
+async function setActiveCharacter(characterId) {
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ active_character_id: characterId })
+            .eq('id', currentUser.id);
+        
+        if (error) throw error;
+        
+        // Update current user profile
+        currentUser.profile.active_character_id = characterId;
+        
+        addToLog('✅ Active character updated!', 'success');
+        await loadUserCharacters(); // Refresh the list
+        
+    } catch (error) {
+        console.error('Error setting active character:', error);
+        addToLog(`❌ Error: ${error.message}`, 'warning');
+    }
+}
+
+async function deleteCharacter(characterId, characterName) {
+    if (!confirm(`Är du säker på att du vill ta bort karaktären "${characterName}"? Detta kan inte ångras.`)) {
+        return;
+    }
+    
+    try {
+        const { error } = await supabase
+            .from('characters')
+            .delete()
+            .eq('id', characterId)
+            .eq('user_id', currentUser.id);
+        
+        if (error) throw error;
+        
+        addToLog(`✅ Character "${characterName}" deleted!`, 'success');
+        await loadUserCharacters(); // Refresh the list
+        
+    } catch (error) {
+        console.error('Error deleting character:', error);
+        addToLog(`❌ Error: ${error.message}`, 'warning');
+    }
+}
+
+function viewCharacterDetails(characterId) {
+    // For now, just show a message. Could be expanded to show detailed stats, equipment, etc.
+    addToLog('📊 Character details view - Coming soon!', 'info');
+}
+
+function showCreateNewCharacter() {
+    // Check character limit
+    const createBtn = document.getElementById('create-character-btn');
+    if (createBtn && createBtn.disabled) {
+        addToLog('❌ You already have the maximum of 3 characters!', 'warning');
+        return;
+    }
+    
+    // Go to character creation
+    showCharacterCreation();
 }
 

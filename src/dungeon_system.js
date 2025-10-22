@@ -259,6 +259,7 @@ class Dungeon {
 let currentDungeon = null;
 let playerCurrentRoom = {}; // Map of playerId -> roomId
 let portalKeyHolder = null; // Player who has the key
+let roomChatMessages = {}; // Map of roomId -> array of chat messages
 
 // ============================================
 // DUNGEON EXPLORATION PHASE
@@ -279,6 +280,9 @@ function startDungeonExploration() {
     });
     
     portalKeyHolder = null;
+    
+    // Initialize room chat messages
+    roomChatMessages = {};
     
     updatePhaseTitle("🗺️ Dungeon Utforskning - Runda " + game.round);
     clearLog();
@@ -301,6 +305,198 @@ function showCurrentRoomInfo() {
     
     addToLog(roomInfo, 'info');
     updatePlayersList();
+    
+    // Show chat for current room
+    showRoomChat(playerRoomId);
+}
+
+// ============================================
+// CHAT SYSTEM
+// ============================================
+
+function showRoomChat(roomId) {
+    const chatContainer = document.getElementById('chat-container');
+    const chatMessages = document.getElementById('chat-messages');
+    
+    if (!chatContainer || !chatMessages) return;
+    
+    // Show chat container
+    chatContainer.style.display = 'block';
+    
+    // Get players in this room
+    const playersInRoom = currentDungeon.getPlayersInRoom(roomId);
+    const playerCount = playersInRoom.length;
+    
+    // Update chat title
+    const chatTitle = chatContainer.querySelector('h3');
+    if (chatTitle) {
+        chatTitle.textContent = `💬 Rum Chat (${playerCount} spelare)`;
+    }
+    
+    // Clear and populate chat messages
+    chatMessages.innerHTML = '';
+    
+    // Initialize room chat if not exists
+    if (!roomChatMessages[roomId]) {
+        roomChatMessages[roomId] = [];
+    }
+    
+    // Display existing messages
+    roomChatMessages[roomId].forEach(msg => {
+        addChatMessageToDisplay(msg);
+    });
+    
+    // Add welcome message if first time in room
+    if (roomChatMessages[roomId].length === 0) {
+        addSystemChatMessage(roomId, `Du har anslutit till rummet. ${playerCount} spelare här.`);
+    }
+    
+    // Setup chat input
+    const chatInput = document.getElementById('chat-input');
+    if (chatInput) {
+        chatInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                sendChatMessage();
+            }
+        };
+        chatInput.focus();
+    }
+}
+
+function sendChatMessage() {
+    const chatInput = document.getElementById('chat-input');
+    if (!chatInput || !game.playerCharacter) return;
+    
+    const message = chatInput.value.trim();
+    if (!message) return;
+    
+    const playerRoomId = playerCurrentRoom[game.playerCharacter.id];
+    if (playerRoomId === undefined) return;
+    
+    // Create chat message
+    const chatMessage = {
+        id: Date.now(),
+        sender: game.playerCharacter.name,
+        senderId: game.playerCharacter.id,
+        message: message,
+        timestamp: new Date(),
+        roomId: playerRoomId
+    };
+    
+    // Add to room chat
+    if (!roomChatMessages[playerRoomId]) {
+        roomChatMessages[playerRoomId] = [];
+    }
+    roomChatMessages[playerRoomId].push(chatMessage);
+    
+    // Display message
+    addChatMessageToDisplay(chatMessage);
+    
+    // Clear input
+    chatInput.value = '';
+    
+    // Simulate other players in room responding (AI)
+    setTimeout(() => {
+        simulateAIChatResponse(playerRoomId);
+    }, 1000 + Math.random() * 3000);
+}
+
+function addChatMessageToDisplay(chatMessage) {
+    const chatMessages = document.getElementById('chat-messages');
+    if (!chatMessages) return;
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'chat-message';
+    
+    // Determine if it's own message
+    if (chatMessage.senderId === game.playerCharacter.id) {
+        messageDiv.classList.add('own');
+    } else {
+        messageDiv.classList.add('other');
+    }
+    
+    const timeStr = chatMessage.timestamp.toLocaleTimeString('sv-SE', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+    
+    messageDiv.innerHTML = `
+        <span class="sender">${chatMessage.sender}:</span>
+        <span class="message">${chatMessage.message}</span>
+        <span class="timestamp">${timeStr}</span>
+    `;
+    
+    chatMessages.appendChild(messageDiv);
+    
+    // Auto-scroll to bottom
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function addSystemChatMessage(roomId, message) {
+    const chatMessage = {
+        id: Date.now(),
+        sender: 'System',
+        senderId: 'system',
+        message: message,
+        timestamp: new Date(),
+        roomId: roomId
+    };
+    
+    if (!roomChatMessages[roomId]) {
+        roomChatMessages[roomId] = [];
+    }
+    roomChatMessages[roomId].push(chatMessage);
+    
+    addChatMessageToDisplay(chatMessage);
+}
+
+function simulateAIChatResponse(roomId) {
+    const playersInRoom = currentDungeon.getPlayersInRoom(roomId);
+    const aiPlayers = playersInRoom.filter(playerId => {
+        const player = game.players.find(p => p.id === playerId);
+        return player && !player.isPlayer && player.alive;
+    });
+    
+    if (aiPlayers.length === 0) return;
+    
+    // Random chance for AI to respond
+    if (Math.random() < 0.3) { // 30% chance
+        const randomPlayerId = aiPlayers[Math.floor(Math.random() * aiPlayers.length)];
+        const player = game.players.find(p => p.id === randomPlayerId);
+        
+        if (player) {
+            const responses = [
+                "Intressant...",
+                "Jag håller med.",
+                "Vad tror du vi ska göra härnäst?",
+                "Jag känner mig lite orolig...",
+                "Har någon sett något konstigt?",
+                "Vi borde vara försiktiga.",
+                "Jag hoppas vi hittar något användbart här.",
+                "Det här rummet känns konstigt...",
+                "Vad säger du om att fortsätta utforska?",
+                "Jag undrar vad som finns härnäst."
+            ];
+            
+            const response = responses[Math.floor(Math.random() * responses.length)];
+            
+            const chatMessage = {
+                id: Date.now(),
+                sender: player.name,
+                senderId: player.id,
+                message: response,
+                timestamp: new Date(),
+                roomId: roomId
+            };
+            
+            if (!roomChatMessages[roomId]) {
+                roomChatMessages[roomId] = [];
+            }
+            roomChatMessages[roomId].push(chatMessage);
+            
+            addChatMessageToDisplay(chatMessage);
+        }
+    }
 }
 
 function showRoomMovementOptions() {
@@ -322,6 +518,13 @@ function showRoomMovementOptions() {
     
     if (currentRoom.monster && currentRoom.monster.alive) {
         showMainButton(`⚔️ Bekämpa ${currentRoom.monster.name}`, () => fightMonster(playerRoomId));
+        
+        // Show item usage options during combat
+        if (currentRoom.type === 'boss') {
+            showBossItemOptions();
+        } else {
+            showCombatItemOptions();
+        }
         return;
     }
     
@@ -455,13 +658,19 @@ function fightMonster(roomId) {
     clearActionButtons();
     addToLog(`⚔️ Strid med ${monster.name}!`, 'warning');
     
-    // Calculate player attack (based on stats and items)
-    const playerStrength = currentUser.profile?.strength || 5;
-    const attackPower = game.playerCharacter.attackPower || 0;
-    const playerDamage = randomInt(15, 25) + playerStrength + attackPower;
+    // Show current HP for both player and monster
+    const playerHP = calculatePlayerHP();
+    const playerMaxHP = calculatePlayerMaxHP();
+    addToLog(`❤️ Ditt HP: ${playerHP}/${playerMaxHP}`, 'info');
+    addToLog(`👹 ${monster.name} HP: ${monster.hp}/${monster.maxHp}`, 'info');
+    
+    // Calculate player combat level and damage
+    const combatLevel = calculateCombatLevel();
+    const playerDamage = calculatePlayerDamage(combatLevel);
     
     monster.hp -= playerDamage;
-    addToLog(`Du gör ${playerDamage} skada! (${monster.hp}/${monster.maxHp} HP kvar)`, 'info');
+    addToLog(`⚔️ Du gör ${playerDamage} skada! (Combat Level: ${combatLevel})`, 'info');
+    addToLog(`👹 ${monster.name} har ${monster.hp}/${monster.maxHp} HP kvar`, 'info');
     
     if (monster.hp <= 0) {
         monster.alive = false;
@@ -490,10 +699,19 @@ function fightMonster(roomId) {
                 game.playerCharacter.itemProtection--;
                 addToLog(`🛡️ Ditt skydd absorberar attacken!`, 'success');
             } else {
-                addToLog(`💥 ${monster.name} gör ${monsterDamage} skada!`, 'warning');
+                // Calculate actual damage taken based on vitality
+                const vitality = currentUser.profile?.vitality || 5;
+                const damageReduction = Math.min(0.5, vitality / 100); // Max 50% reduction
+                const actualDamage = Math.max(1, Math.floor(monsterDamage * (1 - damageReduction)));
                 
-                // Check if player dies
-                if (Math.random() < 0.3) { // 30% chance to die
+                addToLog(`💥 ${monster.name} gör ${actualDamage} skada! (${monsterDamage} - ${Math.floor(monsterDamage * damageReduction)} reduktion)`, 'warning');
+                
+                // Update player HP (simplified - in real game this would be tracked)
+                addToLog(`❤️ Ditt HP: ${Math.max(0, playerHP - actualDamage)}/${playerMaxHP}`, 'info');
+                
+                // Check if player dies (based on remaining HP)
+                const remainingHP = playerHP - actualDamage;
+                if (remainingHP <= 0) {
                     if (game.playerCharacter.hasRevive) {
                         game.playerCharacter.hasRevive = false;
                         addToLog('🔥 Phoenix Feather räddar dig från döden!', 'success');
@@ -509,9 +727,300 @@ function fightMonster(roomId) {
             
             setTimeout(() => {
                 showMainButton(`⚔️ Fortsätt Striden`, () => fightMonster(roomId));
+                showCombatItemOptions();
             }, 1000);
         }, 1000);
     }
+}
+
+// Calculate player's combat level based on stats
+function calculateCombatLevel() {
+    if (!currentUser?.profile) return 5;
+    
+    const strength = currentUser.profile.strength || 5;
+    const intellect = currentUser.profile.intellect || 5;
+    const agility = currentUser.profile.agility || 5;
+    const vitality = currentUser.profile.vitality || 5;
+    const wisdom = currentUser.profile.wisdom || 5;
+    
+    // Combat level is a weighted combination of stats
+    const combatLevel = Math.floor(
+        (strength * 0.3) + 
+        (intellect * 0.2) + 
+        (agility * 0.2) + 
+        (vitality * 0.15) + 
+        (wisdom * 0.15)
+    );
+    
+    return Math.max(1, combatLevel);
+}
+
+// Calculate player damage based on combat level
+function calculatePlayerDamage(combatLevel) {
+    const baseDamage = randomInt(10, 20);
+    const combatBonus = Math.floor(combatLevel * 1.5);
+    const itemBonus = game.playerCharacter.attackPower || 0;
+    
+    return baseDamage + combatBonus + itemBonus;
+}
+
+// Calculate current player HP (simplified)
+function calculatePlayerHP() {
+    // In a real game, this would be tracked in the player object
+    // For now, we'll use a simplified calculation
+    const maxHP = calculatePlayerMaxHP();
+    return maxHP; // Assume full HP for now
+}
+
+// Calculate max player HP based on vitality
+function calculatePlayerMaxHP() {
+    if (!currentUser?.profile) return 50;
+    
+    const vitality = currentUser.profile.vitality || 5;
+    const baseHP = 30;
+    const vitalityBonus = vitality * 4;
+    
+    return baseHP + vitalityBonus;
+}
+
+// ============================================
+// ITEM USAGE DURING COMBAT
+// ============================================
+
+function showCombatItemOptions() {
+    // Check if player has equipped items
+    if (!gameEquippedItems || gameEquippedItems.length === 0) {
+        return;
+    }
+    
+    const combatItems = gameEquippedItems.filter((playerItem, index) => {
+        const item = playerItem.items;
+        const isUsed = usedItems.includes(playerItem.id);
+        
+        // Show items that can be used in combat
+        return !isUsed && (
+            item.effect.includes('heal') ||
+            item.effect.includes('survive_attack') ||
+            item.effect.includes('block_attacks') ||
+            item.effect.includes('attack_power') ||
+            item.effect.includes('revive') ||
+            item.effect.includes('escape_danger') ||
+            item.effect.includes('instant_flee')
+        );
+    });
+    
+    if (combatItems.length === 0) {
+        return;
+    }
+    
+    const voteContainer = document.getElementById("vote-buttons");
+    if (!voteContainer) return;
+    
+    // Add item usage section
+    const itemSection = document.createElement('div');
+    itemSection.className = 'combat-items-section';
+    itemSection.innerHTML = '<h4 style="color: #d4af37; margin: 15px 0 10px 0;">🎒 Använd föremål under strid:</h4>';
+    
+    combatItems.forEach((playerItem, index) => {
+        const item = playerItem.items;
+        const rarityEmoji = getRarityEmoji(item.rarity);
+        
+        const itemBtn = document.createElement('button');
+        itemBtn.className = 'combat-item-btn';
+        itemBtn.innerHTML = `${rarityEmoji} ${item.name}`;
+        itemBtn.title = `${item.description}\nEffekt: ${item.effect}`;
+        itemBtn.onclick = () => useItemInCombat(playerItem.id, index);
+        itemSection.appendChild(itemBtn);
+    });
+    
+    voteContainer.appendChild(itemSection);
+}
+
+function useItemInCombat(playerItemId, itemIndex) {
+    if (!game || !game.playerCharacter || !game.playerCharacter.alive) {
+        addToLog('❌ Du kan inte använda föremål just nu', 'warning');
+        return;
+    }
+    
+    const playerItem = gameEquippedItems[itemIndex];
+    if (!playerItem) return;
+    
+    const item = playerItem.items;
+    
+    // Check if already used
+    if (usedItems.includes(playerItemId)) {
+        addToLog('❌ Du har redan använt detta föremål', 'warning');
+        return;
+    }
+    
+    // Apply item effect
+    const effectApplied = applyItemEffect(item);
+    
+    if (effectApplied) {
+        // Mark as used
+        usedItems.push(playerItemId);
+        
+        // Add to game log
+        addToLog(`✨ Du använde ${item.name} under striden!`, 'success');
+        
+        // Update display
+        displayEquippedItems();
+        
+        // Decrease quantity in database (for consumables)
+        if (item.item_type === 'consumable') {
+            decreaseItemQuantity(playerItemId);
+        }
+        
+        // Clear combat item options and show updated ones
+        setTimeout(() => {
+            const voteContainer = document.getElementById("vote-buttons");
+            const combatSection = voteContainer.querySelector('.combat-items-section');
+            if (combatSection) {
+                combatSection.remove();
+            }
+            showCombatItemOptions();
+        }, 1000);
+    }
+}
+
+function showBossItemOptions() {
+    // Check if player has equipped items
+    if (!gameEquippedItems || gameEquippedItems.length === 0) {
+        return;
+    }
+    
+    const bossItems = gameEquippedItems.filter((playerItem, index) => {
+        const item = playerItem.items;
+        const isUsed = usedItems.includes(playerItem.id);
+        
+        // Show items that can be used against bosses (including smokebomb)
+        return !isUsed && (
+            item.effect.includes('heal') ||
+            item.effect.includes('survive_attack') ||
+            item.effect.includes('block_attacks') ||
+            item.effect.includes('attack_power') ||
+            item.effect.includes('revive') ||
+            item.effect.includes('escape_danger') ||
+            item.effect.includes('instant_flee') ||
+            item.name.toLowerCase().includes('smoke') ||
+            item.name.toLowerCase().includes('bomb')
+        );
+    });
+    
+    if (bossItems.length === 0) {
+        return;
+    }
+    
+    const voteContainer = document.getElementById("vote-buttons");
+    if (!voteContainer) return;
+    
+    // Add item usage section
+    const itemSection = document.createElement('div');
+    itemSection.className = 'combat-items-section';
+    itemSection.innerHTML = '<h4 style="color: #d4af37; margin: 15px 0 10px 0;">🎒 Använd föremål mot bossen:</h4>';
+    
+    bossItems.forEach((playerItem, index) => {
+        const item = playerItem.items;
+        const rarityEmoji = getRarityEmoji(item.rarity);
+        
+        const itemBtn = document.createElement('button');
+        itemBtn.className = 'combat-item-btn';
+        
+        // Special handling for smokebomb
+        if (item.name.toLowerCase().includes('smoke') || item.name.toLowerCase().includes('bomb')) {
+            itemBtn.innerHTML = `${rarityEmoji} ${item.name} (Skippa Boss)`;
+            itemBtn.title = `${item.description}\nEffekt: ${item.effect}\n\nAnvänd för att skippa bossrummet genom att slå en tärning mot din Smidighet!`;
+            itemBtn.onclick = () => useSmokebombOnBoss(playerItem.id, index);
+        } else {
+            itemBtn.innerHTML = `${rarityEmoji} ${item.name}`;
+            itemBtn.title = `${item.description}\nEffekt: ${item.effect}`;
+            itemBtn.onclick = () => useItemInCombat(playerItem.id, index);
+        }
+        
+        itemSection.appendChild(itemBtn);
+    });
+    
+    voteContainer.appendChild(itemSection);
+}
+
+function useSmokebombOnBoss(playerItemId, itemIndex) {
+    if (!game || !game.playerCharacter || !game.playerCharacter.alive) {
+        addToLog('❌ Du kan inte använda föremål just nu', 'warning');
+        return;
+    }
+    
+    const playerItem = gameEquippedItems[itemIndex];
+    if (!playerItem) return;
+    
+    const item = playerItem.items;
+    
+    // Check if already used
+    if (usedItems.includes(playerItemId)) {
+        addToLog('❌ Du har redan använt detta föremål', 'warning');
+        return;
+    }
+    
+    // Roll dice against agility
+    const playerAgility = currentUser.profile?.agility || 5;
+    const diceRoll = randomInt(1, 20);
+    const successThreshold = Math.min(15, 10 + playerAgility);
+    
+    addToLog(`🎲 Du använder ${item.name} och slår en tärning mot din Smidighet (${playerAgility})...`, 'info');
+    addToLog(`🎲 Tärningsresultat: ${diceRoll} (behöver ${successThreshold} eller högre)`, 'info');
+    
+    if (diceRoll >= successThreshold) {
+        // Success - skip boss
+        addToLog(`💨 ${item.name} fungerar! Du smyger förbi bossen!`, 'success');
+        
+        // Mark boss as defeated
+        const playerRoomId = playerCurrentRoom[game.playerCharacter.id];
+        const room = currentDungeon.getRoom(playerRoomId);
+        if (room.monster) {
+            room.monster.alive = false;
+            room.cleared = true;
+        }
+        
+        // Mark item as used
+        usedItems.push(playerItemId);
+        
+        // Decrease quantity
+        if (item.item_type === 'consumable') {
+            decreaseItemQuantity(playerItemId);
+        }
+        
+        setTimeout(() => {
+            showRoomMovementOptions();
+        }, 2000);
+    } else {
+        // Failure - boss notices
+        addToLog(`💥 ${item.name} misslyckas! Bossen märker dig och blir argare!`, 'warning');
+        addToLog(`⚔️ Du måste slåss mot bossen ändå!`, 'warning');
+        
+        // Mark item as used even on failure
+        usedItems.push(playerItemId);
+        
+        // Decrease quantity
+        if (item.item_type === 'consumable') {
+            decreaseItemQuantity(playerItemId);
+        }
+        
+        // Boss gets a bonus (increased damage or HP)
+        const room = currentDungeon.getRoom(playerCurrentRoom[game.playerCharacter.id]);
+        if (room.monster) {
+            room.monster.damage += 5; // Boss becomes more dangerous
+            addToLog(`👹 Bossen blir argare och får +5 skada!`, 'warning');
+        }
+    }
+}
+
+function getRarityEmoji(rarity) {
+    const rarityEmojis = {
+        'common': '⚪',
+        'uncommon': '🔵',
+        'rare': '🟣',
+        'legendary': '🟡'
+    };
+    return rarityEmojis[rarity] || '⚪';
 }
 
 function collectTreasure(roomId) {
