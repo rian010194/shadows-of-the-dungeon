@@ -27,6 +27,11 @@ function showAuthScreen() {
 async function showMenuScreen() {
     hideAllScreens();
     
+    // Always refresh profile data when showing menu
+    if (currentUser) {
+        await refreshPlayerGold();
+    }
+    
     // Check if character needs to be created
     if (currentUser && currentUser.profile && currentUser.profile.character_created === false) {
         showCharacterCreation();
@@ -36,49 +41,52 @@ async function showMenuScreen() {
     document.getElementById('menu-screen').style.display = 'block';
     
     if (currentUser) {
-        // Show character name if available
-        const displayName = (currentUser.profile && (currentUser.profile.character_name || currentUser.profile.username)) || currentUser.email;
+        // Show username if available
+        const displayName = (currentUser.profile && currentUser.profile.username) || currentUser.email;
         document.getElementById('username-display').textContent = displayName;
-        
-        // Show class emoji if available
-        const classEmojis = {
-            'mage': '🔮',
-            'warrior': '⚔️',
-            'rogue': '🗡️',
-            'seer': '🔯'
-        };
-        const classEmoji = classEmojis[currentUser.profile?.character_class] || '';
-        if (classEmoji) {
-            document.getElementById('username-display').textContent = `${classEmoji} ${displayName}`;
-        }
         
         document.getElementById('user-stats').textContent = 
             `Games: ${currentUser.profile?.games_played || 0} | Wins: ${currentUser.profile?.games_won || 0}`;
         
         // Update gold display
-        await refreshPlayerGold();
+        updateGoldDisplay();
     }
 }
 
 async function refreshPlayerGold() {
     try {
-        const { data: profile } = await supabase
+        const { data: profile, error } = await supabase
             .from('profiles')
-            .select('gold')
+            .select('gold, character_created, active_character_id')
             .eq('id', currentUser.id)
             .single();
         
+        if (error) {
+            console.error('Error fetching profile:', error);
+            addToLog('❌ Error loading profile data', 'warning');
+            return;
+        }
+        
         if (profile) {
-            // Update currentUser profile
+            // Update currentUser profile with all data
             if (currentUser && currentUser.profile) {
                 currentUser.profile.gold = profile.gold || 0;
+                currentUser.profile.character_created = profile.character_created || false;
+                currentUser.profile.active_character_id = profile.active_character_id;
             }
             
             // Update all gold displays
             updateGoldDisplay();
+            
+            console.log('Profile refreshed:', {
+                gold: profile.gold,
+                character_created: profile.character_created,
+                active_character_id: profile.active_character_id
+            });
         }
     } catch (error) {
         console.error('Error refreshing gold:', error);
+        addToLog('❌ Error refreshing profile data', 'warning');
     }
 }
 
@@ -385,49 +393,58 @@ async function showCharacterManagement() {
 
 async function loadUserCharacters() {
     try {
+        console.log('Loading characters for user:', currentUser.id);
+        
+        // First try to load from characters table
         const { data: characters, error } = await supabase
             .from('characters')
             .select('*, character_classes(*)')
             .eq('user_id', currentUser.id)
             .order('created_at', { ascending: false });
         
-        if (error) throw error;
+        console.log('Characters query result:', { characters, error });
+        console.log('Number of characters found:', characters ? characters.length : 0);
         
-        const characterList = document.getElementById('character-list');
-        if (!characterList) return;
-        
-        if (!characters || characters.length === 0) {
-            characterList.innerHTML = `
-                <div class="no-characters">
-                    <span class="emoji">👤</span>
-                    <h3>Inga karaktärer än</h3>
-                    <p>Du har inga karaktärer än. Skapa din första karaktär för att komma igång!</p>
-                    <button onclick="showCreateNewCharacter()" class="primary-btn" style="margin-top: 15px;">
-                        ✨ Skapa Din Första Karaktär
-                    </button>
-                </div>
-            `;
-            return;
-        }
-        
-        characterList.innerHTML = '';
-        
-        characters.forEach(character => {
-            const charCard = createCharacterCard(character);
-            characterList.appendChild(charCard);
-        });
-        
-        // Update create button state
-        const createBtn = document.getElementById('create-character-btn');
-        if (createBtn) {
-            createBtn.disabled = characters.length >= 3;
-            if (characters.length >= 3) {
-                createBtn.textContent = 'Max 3 karaktärer';
-                createBtn.style.opacity = '0.5';
+        if (error) {
+            console.log('Characters table error:', error);
+            console.log('Error details:', error.message, error.code, error.details);
+            // If characters table doesn't exist, try to load from profiles
+            const { data: profileCharacters, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
+            
+            if (profileError) throw profileError;
+            
+            // Convert profile to character format if user has a character
+            if (profileCharacters && profileCharacters.character_created && profileCharacters.character_name) {
+                const character = {
+                    id: currentUser.id, // Use user ID as character ID for now
+                    character_name: profileCharacters.character_name,
+                    character_class: profileCharacters.character_class,
+                    strength: profileCharacters.strength || 5,
+                    intellect: profileCharacters.intellect || 5,
+                    agility: profileCharacters.agility || 5,
+                    vitality: profileCharacters.vitality || 5,
+                    wisdom: profileCharacters.wisdom || 5,
+                    games_played: profileCharacters.games_played || 0,
+                    games_won: profileCharacters.games_won || 0,
+                    created_at: profileCharacters.created_at,
+                    character_classes: {
+                        display_name: profileCharacters.character_class
+                    }
+                };
+                
+                await displayCharacters([character]);
+                return;
+            } else {
+                await displayCharacters([]);
+                return;
             }
         }
         
-        addToLog(`✅ Loaded ${characters.length} character(s)`, 'success');
+        await displayCharacters(characters);
         
     } catch (error) {
         console.error('Error loading characters:', error);
@@ -435,7 +452,65 @@ async function loadUserCharacters() {
     }
 }
 
+// ----------------------------------------
+// Display Characters Helper
+// ----------------------------------------
+async function displayCharacters(characters) {
+    console.log('Displaying characters:', characters);
+    const characterList = document.getElementById('character-list');
+    if (!characterList) return;
+    
+    if (!characters || characters.length === 0) {
+        // Update character counter
+        const characterCount = document.getElementById('character-count');
+        if (characterCount) {
+            characterCount.textContent = '0/3';
+        }
+        
+        characterList.innerHTML = `
+            <div class="no-characters">
+                <span class="emoji">👤</span>
+                <h3>Inga karaktärer än</h3>
+                <p>Du har inga karaktärer än. Skapa din första karaktär för att komma igång!</p>
+                <button onclick="showCreateNewCharacter()" class="primary-btn" style="margin-top: 15px;">
+                    ✨ Skapa Din Första Karaktär
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    characterList.innerHTML = '';
+    
+    characters.forEach(character => {
+        const charCard = createCharacterCard(character);
+        characterList.appendChild(charCard);
+    });
+    
+    // Update character counter
+    const characterCount = document.getElementById('character-count');
+    if (characterCount) {
+        characterCount.textContent = `${characters.length}/3`;
+    }
+    
+    // Update create button state
+    const createBtn = document.getElementById('create-character-btn');
+    if (createBtn) {
+        createBtn.disabled = characters.length >= 3;
+        if (characters.length >= 3) {
+            createBtn.textContent = 'Max 3 karaktärer';
+            createBtn.style.opacity = '0.5';
+        } else {
+            createBtn.textContent = '✨ Skapa Ny Karaktär';
+            createBtn.style.opacity = '1';
+        }
+    }
+    
+    addToLog(`✅ Loaded ${characters.length} character(s)`, 'success');
+}
+
 function createCharacterCard(character) {
+    console.log('Creating character card for:', character);
     const card = document.createElement('div');
     card.className = 'character-card';
     
@@ -464,6 +539,25 @@ function createCharacterCard(character) {
             </div>
         </div>
         
+        <div class="character-overview">
+            <div class="overview-item">
+                <span class="overview-label">🎮 Spelade</span>
+                <span class="overview-value">${character.games_played || 0}</span>
+            </div>
+            <div class="overview-item">
+                <span class="overview-label">🏆 Vinster</span>
+                <span class="overview-value">${character.games_won || 0}</span>
+            </div>
+            <div class="overview-item">
+                <span class="overview-label">📊 Total Stats</span>
+                <span class="overview-value">${(character.strength + character.intellect + character.agility + character.vitality + character.wisdom)}</span>
+            </div>
+            <div class="overview-item">
+                <span class="overview-label">⚔️ Quest Status</span>
+                <span class="overview-value">🆓 Ledig</span>
+            </div>
+        </div>
+        
         <div class="character-stats">
             <div class="stat-item">
                 <span class="stat-label">💪 Styrka</span>
@@ -482,19 +576,15 @@ function createCharacterCard(character) {
                 <span class="stat-value">${character.vitality}</span>
             </div>
             <div class="stat-item">
-                <span class="stat-label">👁️ Visdom</span>
+                <span class="stat-label">🔮 Visdom</span>
                 <span class="stat-value">${character.wisdom}</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">🎮 Spelade</span>
-                <span class="stat-value">${character.games_played || 0}</span>
             </div>
         </div>
         
         <div class="character-actions">
-            ${!isActive ? `<button class="character-action-btn primary" onclick="setActiveCharacter(${character.id})">Välj som Aktiv</button>` : '<span class="active-character-badge">✅ Aktiv Karaktär</span>'}
-            <button class="character-action-btn" onclick="viewCharacterDetails(${character.id})">Detaljer</button>
-            <button class="character-action-btn danger" onclick="deleteCharacter(${character.id}, '${character.character_name}')">Ta Bort</button>
+            ${!isActive ? `<button class="character-action-btn primary" onclick="setActiveCharacter('${character.id}')">Välj som Aktiv</button>` : '<span class="active-character-badge">✅ Aktiv Karaktär</span>'}
+            <button class="character-action-btn" onclick="viewCharacterDetails('${character.id}')">Detaljer</button>
+            <button class="character-action-btn danger" onclick="deleteCharacter('${character.id}', '${character.character_name}')">Ta Bort</button>
         </div>
     `;
     
@@ -503,12 +593,17 @@ function createCharacterCard(character) {
 
 async function setActiveCharacter(characterId) {
     try {
+        console.log('Setting active character:', characterId);
+        
         const { error } = await supabase
             .from('profiles')
             .update({ active_character_id: characterId })
             .eq('id', currentUser.id);
         
-        if (error) throw error;
+        if (error) {
+            console.error('Error updating active character:', error);
+            throw error;
+        }
         
         // Update current user profile
         currentUser.profile.active_character_id = characterId;
@@ -536,6 +631,8 @@ async function deleteCharacter(characterId, characterName) {
     }
     
     try {
+        console.log('Deleting character:', characterId, characterName);
+        
         // Check if this is the active character
         const isActiveCharacter = currentUser.profile?.active_character_id === characterId;
         
@@ -545,7 +642,10 @@ async function deleteCharacter(characterId, characterName) {
             .eq('id', characterId)
             .eq('user_id', currentUser.id);
         
-        if (error) throw error;
+        if (error) {
+            console.error('Error deleting character:', error);
+            throw error;
+        }
         
         // If we deleted the active character, clear the active character
         if (isActiveCharacter) {

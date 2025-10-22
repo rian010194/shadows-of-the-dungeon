@@ -211,10 +211,22 @@ function subscribeToLobby(lobbyId) {
                 // Game is starting!
                 clearTimeout(matchmakingTimeout);
                 await startMultiplayerGame();
-            } else if (payload.new.host_id !== currentUser.id && currentLobby?.host_id === currentUser.id) {
-                // Host has changed - we're no longer host
-                addToLog('👑 Host has changed', 'info');
-                await refreshLobbyData();
+            } else if (payload.new.host_id !== currentLobby?.host_id) {
+                // Host has changed
+                if (payload.new.host_id === null) {
+                    // Host left and no new host - lobby should be closed
+                    addToLog('🏠 Host left - lobby closed', 'info');
+                    cleanupLobbyState();
+                    showMenuScreen();
+                } else if (payload.new.host_id !== currentUser.id && currentLobby?.host_id === currentUser.id) {
+                    // We're no longer host
+                    addToLog('👑 You are no longer the host', 'info');
+                    await refreshLobbyData();
+                } else {
+                    // Host changed to someone else
+                    addToLog('👑 Host has changed', 'info');
+                    await refreshLobbyData();
+                }
             }
         })
         .on('postgres_changes', {
@@ -285,13 +297,35 @@ async function refreshLobbyData() {
             return;
         }
         
-        // Check if host has changed
-        if (lobby.host_id !== currentUser.id && currentLobby?.host_id === currentUser.id) {
-            addToLog('👑 You are no longer the host', 'info');
+        // Check if host is still in the lobby
+        if (lobby.host_id && !lobby.lobby_players.some(p => p.user_id === lobby.host_id)) {
+            // Host is not in lobby anymore - close it
+            addToLog('🏠 Host left - lobby closed', 'info');
+            cleanupLobbyState();
+            showMenuScreen();
+            return;
+        }
+        
+        // Check if host has changed or left
+        if (lobby.host_id !== currentLobby?.host_id) {
+            if (lobby.host_id === null) {
+                // Host left and no new host assigned - lobby should be closed
+                addToLog('🏠 Host left - lobby closed', 'info');
+                cleanupLobbyState();
+                showMenuScreen();
+                return;
+            } else if (lobby.host_id !== currentUser.id && currentLobby?.host_id === currentUser.id) {
+                addToLog('👑 You are no longer the host', 'info');
+            } else {
+                addToLog('👑 Host has changed', 'info');
+            }
         }
         
         // Update current lobby reference
         currentLobby = lobby;
+        
+        // Check if host left and close lobby if needed
+        await checkAndCloseLobbyIfHostLeft();
         
         updateLobbyUI();
         
@@ -439,46 +473,120 @@ async function leaveLobby() {
 // ----------------------------------------
 async function handleHostLeave() {
     try {
-        // Get remaining players
+        console.log('Host leaving lobby:', currentLobby.id);
+        
+        // First, remove ourselves from lobby_players
+        await removePlayerFromLobby();
+        
+        // Get remaining players (excluding AI players for host transfer)
         const { data: remainingPlayers, error: playersError } = await supabase
             .from('lobby_players')
-            .select('user_id, username')
+            .select('user_id, username, is_ai')
             .eq('lobby_id', currentLobby.id)
             .neq('user_id', currentUser.id);
 
-        if (playersError) throw playersError;
+        if (playersError) {
+            console.error('Error getting remaining players:', playersError);
+            // If we can't get players, just delete the lobby
+            await deleteLobby();
+            return;
+        }
 
-        if (remainingPlayers && remainingPlayers.length > 0) {
-            // Transfer host to another player
-            const newHost = remainingPlayers[0];
+        // Filter out AI players for host transfer
+        const realPlayers = remainingPlayers?.filter(p => !p.is_ai) || [];
+        
+        if (realPlayers.length > 0) {
+            // Transfer host to another real player
+            const newHost = realPlayers[0];
+            
+            console.log('Transferring host to:', newHost.username);
             
             const { error: updateError } = await supabase
                 .from('lobbies')
-                .update({ host_id: newHost.user_id })
+                .update({ 
+                    host_id: newHost.user_id,
+                    status: 'waiting' // Ensure lobby stays open
+                })
                 .eq('id', currentLobby.id);
 
-            if (updateError) throw updateError;
+            if (updateError) {
+                console.error('Error transferring host:', updateError);
+                // If transfer fails, delete the lobby
+                await deleteLobby();
+                return;
+            }
             
             addToLog(`👑 Host transferred to ${newHost.username}`, 'info');
         } else {
-            // No other players - delete the lobby
-            const { error: deleteError } = await supabase
-                .from('lobbies')
-                .delete()
-                .eq('id', currentLobby.id);
-
-            if (deleteError) throw deleteError;
-            
-            addToLog('🏠 Lobby deleted (no other players)', 'info');
+            // No other real players - close the lobby
+            console.log('No other players, closing lobby');
+            await deleteLobby();
         }
-
-        // Remove ourselves from lobby
-        await removePlayerFromLobby();
         
     } catch (error) {
         console.error('Host leave error:', error);
         addToLog(`❌ Error handling host leave: ${error.message}`, 'warning');
+        // Try to delete lobby as fallback
+        await deleteLobby();
+    }
+}
+
+// ----------------------------------------
+// Delete Lobby Helper
+// ----------------------------------------
+async function deleteLobby() {
+    try {
+        const { error: deleteError } = await supabase
+            .from('lobbies')
+            .delete()
+            .eq('id', currentLobby.id);
+
+        if (deleteError) {
+            console.error('Error deleting lobby:', deleteError);
+            addToLog('❌ Error closing lobby', 'warning');
+        } else {
+            addToLog('🏠 Lobby closed (host left)', 'info');
+        }
+    } catch (error) {
+        console.error('Delete lobby error:', error);
+        addToLog('❌ Error closing lobby', 'warning');
+    } finally {
         cleanupLobbyState();
+        showMenuScreen();
+    }
+}
+
+// ----------------------------------------
+// Auto-close Lobby if Host Left
+// ----------------------------------------
+async function checkAndCloseLobbyIfHostLeft() {
+    if (!currentLobby) return;
+    
+    try {
+        // Check if host is still in the lobby
+        const { data: lobby, error } = await supabase
+            .from('lobbies')
+            .select('host_id, lobby_players(user_id)')
+            .eq('id', currentLobby.id)
+            .single();
+            
+        if (error || !lobby) {
+            // Lobby doesn't exist anymore
+            cleanupLobbyState();
+            showMenuScreen();
+            return;
+        }
+        
+        // Check if host is still in lobby_players
+        const hostInLobby = lobby.lobby_players.some(p => p.user_id === lobby.host_id);
+        
+        if (lobby.host_id && !hostInLobby) {
+            // Host is not in lobby anymore - close it
+            console.log('Host left lobby, closing it');
+            await deleteLobby();
+        }
+    } catch (error) {
+        console.error('Error checking host status:', error);
     }
 }
 

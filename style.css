@@ -1713,6 +1713,15 @@ button:disabled {
     border-radius: 8px;
 }
 
+.character-counter {
+    background: linear-gradient(135deg, #4a4a4a, #6a6a6a);
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid #666;
+    font-weight: bold;
+    color: #d4af37;
+}
+
 .character-limit-info {
     color: #b8860b;
     font-size: 0.9rem;
@@ -1720,19 +1729,22 @@ button:disabled {
 }
 
 .character-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
     margin-bottom: 20px;
+    max-width: 100%;
 }
 
 .character-card {
     background: rgba(20, 20, 30, 0.9);
     border: 2px solid #8b7355;
     border-radius: 10px;
-    padding: 20px;
+    padding: 15px;
     transition: all 0.3s ease;
     position: relative;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .character-card:hover {
@@ -1757,6 +1769,56 @@ button:disabled {
     border-radius: 4px;
     font-size: 0.8rem;
     font-weight: bold;
+}
+
+/* Character card content styling */
+.character-card h3 {
+    margin: 0 0 8px 0;
+    font-size: 1.1rem;
+    color: #d4af37;
+}
+
+.character-card h4 {
+    margin: 0 0 6px 0;
+    font-size: 0.9rem;
+    color: #b8860b;
+}
+
+.character-card p {
+    margin: 0 0 4px 0;
+    font-size: 0.85rem;
+    color: #e0e0e0;
+}
+
+.character-card .character-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+    margin: 8px 0;
+    font-size: 0.8rem;
+}
+
+.character-card .character-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.character-card .character-actions button {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    border-radius: 4px;
+    border: 1px solid #666;
+    background: linear-gradient(135deg, #4a4a4a, #6a6a6a);
+    color: #e0e0e0;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.character-card .character-actions button:hover {
+    background: linear-gradient(135deg, #6a6a6a, #8a8a8a);
+    border-color: #d4af37;
 }
 
 .character-header {
@@ -1899,5 +1961,523 @@ button:disabled {
     .chat-input-container {
         flex-direction: column;
     }
+}
+
+/* ============================================
+   GRID DUNGEON SYSTEM STYLES
+   ============================================ */
+
+.dungeon-grid {
+    border-collapse: collapse;
+    margin: 20px auto;
+    background: rgba(20, 20, 30, 0.8);
+    border: 2px solid #8b7355;
+    border-radius: 8px;
+}
+
+.dungeon-cell {
+    width: 40px;
+    height: 40px;
+    border: 1px solid #444;
+    text-align: center;
+    vertical-align: middle;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.dungeon-cell.player-room {
+    background: linear-gradient(135deg, #d4af37, #f4cf47);
+    color: #000;
+    font-weight: bold;
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+}
+
+.dungeon-cell.explored-room {
+    background: linear-gradient(135deg, #4a4a4a, #6a6a6a);
+    color: #e0e0e0;
+}
+
+.dungeon-cell.unexplored-room {
+    background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
+    color: #666;
+}
+
+.dungeon-cell.empty-cell {
+    background: transparent;
+    border: none;
+}
+
+.dungeon-cell:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 5px rgba(139, 115, 85, 0.3);
+}
+
+/* Movement Options */
+.movement-options {
+    margin: 20px 0;
+    padding: 15px;
+    background: rgba(20, 20, 30, 0.8);
+    border: 1px solid #8b7355;
+    border-radius: 8px;
+}
+
+.movement-options h3 {
+    color: #d4af37;
+    margin-bottom: 10px;
+}
+
+.movement-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    max-width: 300px;
+}
+
+.movement-btn {
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #4a4a4a, #6a6a6a);
+    border: 1px solid #666;
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.movement-btn:hover {
+    background: linear-gradient(135deg, #6a6a6a, #8a8a8a);
+    border-color: #d4af37;
+    transform: translateY(-2px);
+}
+
+/* Room Content Styles */
+.room-header {
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(20, 20, 30, 0.8);
+    border: 1px solid #8b7355;
+    border-radius: 8px;
+}
+
+.room-header h2 {
+    color: #d4af37;
+    margin-bottom: 10px;
+}
+
+.players-in-room {
+    margin: 15px 0;
+    padding: 10px;
+    background: rgba(40, 40, 60, 0.6);
+    border-radius: 6px;
+}
+
+.players-in-room h3 {
+    color: #b8860b;
+    margin-bottom: 8px;
+}
+
+.players-in-room ul {
+    list-style: none;
+    padding: 0;
+}
+
+.players-in-room li {
+    color: #e0e0e0;
+    padding: 2px 0;
+}
+
+/* Combat Section */
+.combat-section {
+    margin: 20px 0;
+    padding: 15px;
+    background: rgba(100, 20, 20, 0.8);
+    border: 1px solid #8b3a3a;
+    border-radius: 8px;
+}
+
+.combat-section h3 {
+    color: #ff6b6b;
+    margin-bottom: 10px;
+}
+
+.combat-btn, .escape-btn {
+    padding: 10px 16px;
+    margin: 5px;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.combat-btn {
+    background: linear-gradient(135deg, #8b3a3a, #a04848);
+    color: white;
+}
+
+.combat-btn:hover {
+    background: linear-gradient(135deg, #a04848, #b85656);
+}
+
+.escape-btn {
+    background: linear-gradient(135deg, #4a4a4a, #6a6a6a);
+    color: #e0e0e0;
+}
+
+.escape-btn:hover {
+    background: linear-gradient(135deg, #6a6a6a, #8a8a8a);
+}
+
+/* Treasure Section */
+.treasure-section {
+    margin: 20px 0;
+    padding: 15px;
+    background: rgba(100, 80, 20, 0.8);
+    border: 1px solid #d4af37;
+    border-radius: 8px;
+}
+
+.treasure-section h3 {
+    color: #d4af37;
+    margin-bottom: 10px;
+}
+
+.treasure-btn {
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #d4af37, #f4cf47);
+    color: #000;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.treasure-btn:hover {
+    background: linear-gradient(135deg, #f4cf47, #ffdf57);
+    transform: translateY(-2px);
+}
+
+/* Portal Section */
+.portal-section {
+    margin: 20px 0;
+    padding: 15px;
+    background: rgba(20, 60, 100, 0.8);
+    border: 1px solid #4a9eff;
+    border-radius: 8px;
+}
+
+.portal-section h3 {
+    color: #4a9eff;
+    margin-bottom: 10px;
+}
+
+/* Trap Section */
+.trap-section {
+    margin: 20px 0;
+    padding: 15px;
+    background: rgba(100, 60, 20, 0.8);
+    border: 1px solid #ff8c42;
+    border-radius: 8px;
+}
+
+.trap-section h3 {
+    color: #ff8c42;
+    margin-bottom: 10px;
+}
+
+.trap-btn, .danger-btn {
+    padding: 10px 16px;
+    margin: 5px;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.trap-btn {
+    background: linear-gradient(135deg, #4a4a4a, #6a6a6a);
+    color: #e0e0e0;
+}
+
+.trap-btn:hover {
+    background: linear-gradient(135deg, #6a6a6a, #8a8a8a);
+}
+
+/* Dungeon Exploration Screen Styles */
+.dungeon-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 12px;
+    background: #1a1a1a;
+    border-radius: 10px;
+}
+
+.dungeon-header {
+    text-align: center;
+    margin-bottom: 12px;
+    padding: 10px;
+    background: #2a2a2a;
+    border-radius: 8px;
+    border: 2px solid #d4af37;
+}
+
+.dungeon-header h2 {
+    color: #d4af37;
+    margin: 0 0 5px 0;
+    font-size: 1.4em;
+}
+
+.dungeon-info {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    color: #fff;
+}
+
+.dungeon-info span {
+    background: #333;
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 0.8em;
+}
+
+/* Dungeon View Header */
+.dungeon-view-header {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 6px;
+}
+
+.toggle-btn {
+    background: #333;
+    color: #fff;
+    border: 2px solid #555;
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.toggle-btn:hover {
+    background: #444;
+    border-color: #d4af37;
+    color: #d4af37;
+}
+
+.toggle-btn.active {
+    background: #d4af37;
+    color: #1a1a1a;
+    border-color: #d4af37;
+}
+
+/* Dungeon View Container */
+.dungeon-view-container {
+    margin-bottom: 10px;
+}
+
+.dungeon-view {
+    display: none;
+    background: #2a2a2a;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #444;
+}
+
+.dungeon-view.active {
+    display: block;
+}
+
+.dungeon-view h3 {
+    color: #d4af37;
+    margin: 0 0 15px 0;
+    text-align: center;
+}
+
+.dungeon-view-header h3 {
+    display: none; /* Hide h3 since we're using toggle button */
+}
+
+.minimap {
+    background: #1a1a1a;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    line-height: 1.0;
+    color: #d4af37;
+    text-align: center;
+    min-height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: pre;
+}
+
+.room-ascii {
+    background: #1a1a1a;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.1;
+    color: #d4af37;
+    text-align: center;
+    min-height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: pre;
+}
+
+.dungeon-actions {
+    background: #2a2a2a;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    margin-bottom: 10px;
+}
+
+.dungeon-actions h3 {
+    color: #d4af37;
+    margin: 0 0 6px 0;
+    text-align: center;
+    font-size: 1em;
+}
+
+.action-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.action-buttons button {
+    padding: 6px 10px;
+    background: #333;
+    color: #fff;
+    border: 2px solid #555;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.action-buttons button:hover {
+    background: #444;
+    border-color: #d4af37;
+    color: #d4af37;
+}
+
+.action-buttons button:disabled {
+    background: #222;
+    color: #666;
+    border-color: #333;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.dungeon-events {
+    background: #2a2a2a;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #444;
+}
+
+.dungeon-events h3 {
+    color: #d4af37;
+    margin: 0 0 5px 0;
+    text-align: center;
+    font-size: 0.9em;
+}
+
+.dungeon-events .event-log {
+    background: #1a1a1a;
+    padding: 6px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    max-height: 160px;
+    overflow-y: auto;
+    color: #fff;
+    line-height: 1.1;
+}
+
+/* Core Gameplay Styles */
+.core-gameplay {
+    background: #2a2a2a;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    margin-bottom: 12px;
+}
+
+.core-gameplay h3 {
+    color: #d4af37;
+    margin: 0 0 8px 0;
+    text-align: center;
+    font-size: 1em;
+}
+
+.gameplay-info {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.gameplay-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #1a1a1a;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #444;
+}
+
+.gameplay-label {
+    color: #aaa;
+    font-weight: bold;
+    font-size: 0.85em;
+}
+
+.gameplay-value {
+    color: #d4af37;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.danger-btn {
+    background: linear-gradient(135deg, #8b3a3a, #a04848);
+    color: white;
+    font-size: 0.85em;
+}
+
+.danger-btn:hover {
+    background: linear-gradient(135deg, #a04848, #b85656);
+}
+
+/* Empty Room Section */
+.empty-room-section {
+    margin: 12px 0;
+    padding: 10px;
+    background: rgba(40, 40, 40, 0.8);
+    border: 1px solid #666;
+    border-radius: 8px;
+}
+
+.empty-room-section h3 {
+    color: #888;
+    margin-bottom: 6px;
+    font-size: 0.9em;
 }
 

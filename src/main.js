@@ -338,7 +338,15 @@ async function startGame() {
     }
     
     setTimeout(() => {
-        showMainButton("Börja äventyret", dayNightVotingPhase);
+        // Start the new grid dungeon system
+        console.log('Attempting to start dungeon exploration...');
+        if (typeof startDungeonExploration === 'function') {
+            console.log('startDungeonExploration function found, calling it...');
+            startDungeonExploration();
+        } else {
+            console.log('startDungeonExploration function not found, falling back to old system...');
+            showMainButton("Börja äventyret", dayNightVotingPhase);
+        }
     }, 1000);
 }
 

@@ -1,41 +1,8 @@
 -- ============================================
--- CHARACTER CREATION SYSTEM
+-- 02. SEED DATA (Run this SECOND)
 -- ============================================
--- Run this in Supabase SQL Editor to add character system
--- This should be run AFTER supabase_schema.sql and update_schema_stashhub.sql
-
--- ============================================
--- ADD CHARACTER FIELDS TO PROFILES
--- ============================================
-
-ALTER TABLE profiles 
-ADD COLUMN IF NOT EXISTS character_name VARCHAR(50),
-ADD COLUMN IF NOT EXISTS character_class VARCHAR(20), -- mage, warrior, rogue, seer
-ADD COLUMN IF NOT EXISTS strength INT DEFAULT 5,
-ADD COLUMN IF NOT EXISTS intellect INT DEFAULT 5,
-ADD COLUMN IF NOT EXISTS agility INT DEFAULT 5,
-ADD COLUMN IF NOT EXISTS vitality INT DEFAULT 5,
-ADD COLUMN IF NOT EXISTS wisdom INT DEFAULT 5,
-ADD COLUMN IF NOT EXISTS character_created BOOLEAN DEFAULT false;
-
--- ============================================
--- CHARACTER CLASSES TABLE
--- ============================================
-
-CREATE TABLE IF NOT EXISTS character_classes (
-    id VARCHAR(20) PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
-    display_name VARCHAR(50) NOT NULL, -- Swedish name
-    description TEXT,
-    emoji VARCHAR(10),
-    base_strength INT DEFAULT 5,
-    base_intellect INT DEFAULT 5,
-    base_agility INT DEFAULT 5,
-    base_vitality INT DEFAULT 5,
-    base_wisdom INT DEFAULT 5,
-    bonus_points INT DEFAULT 5, -- Extra points to allocate
-    starter_item_name VARCHAR(100) -- Reference to items table by name
-);
+-- This script adds character classes and items
+-- Run this AFTER 01_setup_database.sql
 
 -- ============================================
 -- SEED CHARACTER CLASSES
@@ -95,7 +62,48 @@ ON CONFLICT (id) DO UPDATE SET
     starter_item_name = EXCLUDED.starter_item_name;
 
 -- ============================================
--- FUNCTION TO CREATE CHARACTER
+-- SEED ITEMS
+-- ============================================
+
+INSERT INTO items (name, description, type, rarity, value, emoji) VALUES
+-- Starter Items
+('Magic Compass', 'En kompass som alltid pekar mot fara', 'tool', 'common', 50, '🧭'),
+('Iron Shield', 'En tung sköld som ger skydd', 'armor', 'common', 75, '🛡️'),
+('Smoke Bomb', 'Skapar rök för att gömma sig', 'tool', 'common', 30, '💨'),
+('Lucky Charm', 'En amulett som ger tur', 'accessory', 'common', 25, '🍀'),
+
+-- Common Items
+('Health Potion', 'Återställer hälsa', 'consumable', 'common', 20, '🧪'),
+('Torch', 'Ger ljus i mörkret', 'tool', 'common', 15, '🔥'),
+('Rope', 'Användbar för klättring', 'tool', 'common', 10, '🪢'),
+('Lockpick', 'Öppnar lås', 'tool', 'common', 40, '🔓'),
+
+-- Uncommon Items
+('Magic Ring', 'Ger magisk kraft', 'accessory', 'uncommon', 100, '💍'),
+('Steel Sword', 'En skarp klinga', 'weapon', 'uncommon', 150, '⚔️'),
+('Leather Armor', 'Lätt rustning', 'armor', 'uncommon', 120, '🦺'),
+('Healing Crystal', 'Kraftfull helande kristall', 'consumable', 'uncommon', 80, '💎'),
+
+-- Rare Items
+('Dragon Scale', 'Skal från en drake', 'material', 'rare', 500, '🐉'),
+('Ancient Scroll', 'Gammal magisk text', 'tool', 'rare', 300, '📜'),
+('Phoenix Feather', 'Fjäder från en fenix', 'material', 'rare', 400, '🪶'),
+('Crystal Orb', 'Mystisk kristallkula', 'tool', 'rare', 600, '🔮'),
+
+-- Legendary Items
+('Excalibur', 'Den legendariska svärdet', 'weapon', 'legendary', 2000, '🗡️'),
+('Dragon Heart', 'Hjärtat från en drake', 'material', 'legendary', 1500, '❤️'),
+('Crown of Kings', 'Kronan av kungar', 'accessory', 'legendary', 3000, '👑'),
+('Staff of Power', 'Kraftfull trollstav', 'weapon', 'legendary', 2500, '🪄')
+ON CONFLICT (name) DO UPDATE SET
+    description = EXCLUDED.description,
+    type = EXCLUDED.type,
+    rarity = EXCLUDED.rarity,
+    value = EXCLUDED.value,
+    emoji = EXCLUDED.emoji;
+
+-- ============================================
+-- CHARACTER CREATION FUNCTION
 -- ============================================
 
 CREATE OR REPLACE FUNCTION create_character(
@@ -113,6 +121,7 @@ DECLARE
     v_class RECORD;
     v_total_bonus INT;
     v_starter_item_id UUID;
+    v_character_id UUID;
 BEGIN
     -- Get class stats
     SELECT * INTO v_class FROM character_classes WHERE id = p_class_id;
@@ -132,22 +141,45 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'Character name must be at least 2 characters');
     END IF;
     
-    -- Check if character name is already taken
-    IF EXISTS (SELECT 1 FROM profiles WHERE LOWER(character_name) = LOWER(TRIM(p_character_name)) AND id != p_user_id) THEN
+    -- Check if character name is already taken by this user
+    IF EXISTS (SELECT 1 FROM characters WHERE LOWER(character_name) = LOWER(TRIM(p_character_name)) AND user_id = p_user_id) THEN
         RETURN jsonb_build_object('success', false, 'error', 'Character name already taken');
     END IF;
     
-    -- Update profile with character
-    UPDATE profiles SET
-        character_name = TRIM(p_character_name),
-        character_class = p_class_id,
-        strength = v_class.base_strength + p_bonus_strength,
-        intellect = v_class.base_intellect + p_bonus_intellect,
-        agility = v_class.base_agility + p_bonus_agility,
-        vitality = v_class.base_vitality + p_bonus_vitality,
-        wisdom = v_class.base_wisdom + p_bonus_wisdom,
-        character_created = true
-    WHERE id = p_user_id;
+    -- Check if user has reached character limit (3)
+    IF (SELECT COUNT(*) FROM characters WHERE user_id = p_user_id) >= 3 THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Maximum 3 characters allowed');
+    END IF;
+    
+    -- Create character in characters table
+    INSERT INTO characters (
+        user_id,
+        character_name,
+        character_class,
+        strength,
+        intellect,
+        agility,
+        vitality,
+        wisdom
+    ) VALUES (
+        p_user_id,
+        TRIM(p_character_name),
+        p_class_id,
+        v_class.base_strength + p_bonus_strength,
+        v_class.base_intellect + p_bonus_intellect,
+        v_class.base_agility + p_bonus_agility,
+        v_class.base_vitality + p_bonus_vitality,
+        v_class.base_wisdom + p_bonus_wisdom
+    ) RETURNING id INTO v_character_id;
+    
+    -- Set as active character if it's the first one
+    IF NOT EXISTS (SELECT 1 FROM characters WHERE user_id = p_user_id AND id != v_character_id) THEN
+        UPDATE profiles 
+        SET 
+            active_character_id = v_character_id,
+            character_created = true
+        WHERE id = p_user_id;
+    END IF;
     
     -- Give class-specific starting item
     IF v_class.starter_item_name IS NOT NULL THEN
@@ -160,12 +192,12 @@ BEGIN
         END IF;
     END IF;
     
-    RETURN jsonb_build_object('success', true);
+    RETURN jsonb_build_object('success', true, 'character_id', v_character_id);
 END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================
--- FUNCTION TO GET CHARACTER CLASSES
+-- GET CHARACTER CLASSES FUNCTION
 -- ============================================
 
 CREATE OR REPLACE FUNCTION get_character_classes()
@@ -209,11 +241,9 @@ $$ LANGUAGE plpgsql;
 
 DO $$
 BEGIN
-    RAISE NOTICE '✅ Character creation system added successfully!';
-    RAISE NOTICE '🎭 4 Character classes: Mage, Warrior, Rogue, Seer';
-    RAISE NOTICE '📊 5 Stats: Strength, Intellect, Agility, Vitality, Wisdom';
-    RAISE NOTICE '🎁 Each class gets a unique starter item';
+    RAISE NOTICE '✅ Data seeding completed successfully!';
+    RAISE NOTICE '🎭 4 Character classes added';
+    RAISE NOTICE '🎁 20 Items added (common to legendary)';
     RAISE NOTICE '';
-    RAISE NOTICE '📝 Next: Players can create characters with custom names!';
+    RAISE NOTICE '🎮 Next: Run 03_fix_user_accounts.sql if you have existing users';
 END $$;
-

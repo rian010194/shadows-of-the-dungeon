@@ -301,6 +301,17 @@ async function confirmCharacterCreation() {
     confirmBtn.textContent = 'Skapar karaktär...';
     
     try {
+        console.log('Creating character with data:', {
+            p_user_id: currentUser.id,
+            p_character_name: characterName,
+            p_class_id: selectedClass.id,
+            p_bonus_strength: allocatedStats.strength,
+            p_bonus_intellect: allocatedStats.intellect,
+            p_bonus_agility: allocatedStats.agility,
+            p_bonus_vitality: allocatedStats.vitality,
+            p_bonus_wisdom: allocatedStats.wisdom
+        });
+        
         const { data, error } = await supabase.rpc('create_character', {
             p_user_id: currentUser.id,
             p_character_name: characterName,
@@ -311,6 +322,8 @@ async function confirmCharacterCreation() {
             p_bonus_vitality: allocatedStats.vitality,
             p_bonus_wisdom: allocatedStats.wisdom
         });
+        
+        console.log('Character creation result:', { data, error });
         
         if (error) {
             // 409 likely means name already taken or invalid allocation
@@ -338,6 +351,8 @@ async function confirmCharacterCreation() {
         // Show success and go to character management
         addToLog(`✨ Karaktär "${characterName}" (${selectedClass.display_name}) skapad!`, 'success');
         addToLog(`🎁 Du fick en ${selectedClass.starter_item_name} som startföremål!`, 'success');
+        
+        console.log('Character created successfully, going to character management...');
         
         // Go to character management to see all characters
         showCharacterManagement();

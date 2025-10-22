@@ -75,7 +75,7 @@ async function signIn(email, password) {
             currentUser.profile = currentUser.profile || {};
         }
 
-        addToLog(`✅ Welcome back, ${currentUser.profile?.character_name || currentUser.profile?.username || currentUser.email}!`, 'success');
+        addToLog(`✅ Welcome back, ${currentUser.profile?.username || currentUser.email}!`, 'success');
         return { success: true, user: currentUser };
     } catch (error) {
         console.error('Login error:', error);

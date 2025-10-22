@@ -314,19 +314,36 @@ function createShopItemCard(item) {
 // Buy Item
 // ----------------------------------------
 async function buyItem(itemId, price) {
+    if (!currentUser || !currentUser.id) {
+        addToLog('❌ You must be logged in to buy items!', 'warning');
+        return;
+    }
+    
     if ((currentUser?.profile?.gold || 0) < price) {
         addToLog('❌ Not enough gold!', 'warning');
         return;
     }
     
     try {
+        // First, verify that the user profile exists
+        const { data: profileCheck, error: profileCheckError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', currentUser.id)
+            .single();
+        
+        if (profileCheckError || !profileCheck) {
+            addToLog('❌ User profile not found. Please try logging out and back in.', 'warning');
+            return;
+        }
+        
         // Deduct gold
         const newGold = (currentUser?.profile?.gold || 0) - price;
         const { error: goldError } = await supabase
             .from('profiles')
             .update({ gold: newGold })
             .eq('id', currentUser.id);
-        
+
         if (goldError) throw goldError;
         
         // Add item to player inventory
@@ -338,7 +355,14 @@ async function buyItem(itemId, price) {
                 quantity: 1
             });
         
-        if (itemError) throw itemError;
+        if (itemError) {
+            // If item insertion fails, rollback the gold deduction
+            await supabase
+                .from('profiles')
+                .update({ gold: currentUser?.profile?.gold || 0 })
+                .eq('id', currentUser.id);
+            throw itemError;
+        }
         
         // Update currentUser profile
         if (currentUser && currentUser.profile) {

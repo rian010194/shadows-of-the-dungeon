@@ -207,6 +207,9 @@
                 <div class="gold-display-large">
                     💰 <span id="char-mgmt-gold">0</span> Gold
                 </div>
+                <div class="character-counter">
+                    <span id="character-count">0/3</span> Karaktärer
+                </div>
                 <p class="character-limit-info">Du kan ha upp till 3 karaktärer per konto</p>
             </div>
 
@@ -327,6 +330,66 @@
             </div>
         </div>
 
+        <!-- DUNGEON EXPLORATION SCREEN -->
+        <div id="dungeon-exploration-screen" class="screen" style="display: none;">
+            <div class="dungeon-container">
+                <!-- Dungeon Header -->
+                <div class="dungeon-header">
+                    <h2>🗺️ Dungeon Exploration</h2>
+                    <div class="dungeon-info">
+                        <span id="current-room-name">Ingångshallen</span>
+                        <span id="current-room-coords">(2,2)</span>
+                        <span id="current-stamina">⚡ Stamina: 100</span>
+                        <span id="time-of-day">🌅 Day</span>
+                    </div>
+                </div>
+
+                <!-- Dungeon View Container -->
+                <div class="dungeon-view-container">
+                    <!-- Minimap View -->
+                    <div id="minimap-view" class="dungeon-view active">
+                        <div class="dungeon-view-header">
+                            <button id="toggle-view-btn" class="toggle-btn active" onclick="toggleDungeonView()">
+                                🗺️ Minimap
+                            </button>
+                        </div>
+                        <div id="dungeon-minimap" class="minimap">
+                            <!-- Small ASCII minimap will be inserted here -->
+                        </div>
+                    </div>
+
+                    <!-- Room View -->
+                    <div id="room-view" class="dungeon-view">
+                        <div class="dungeon-view-header">
+                            <button id="toggle-view-btn" class="toggle-btn" onclick="toggleDungeonView()">
+                                🏠 Current Room
+                            </button>
+                        </div>
+                        <div id="room-ascii-view" class="room-ascii">
+                            <!-- Detailed room ASCII will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- Action Buttons -->
+                <div class="dungeon-actions">
+                    <h3>🎮 Actions</h3>
+                    <div id="dungeon-action-buttons" class="action-buttons">
+                        <!-- Movement and action buttons will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Event Log -->
+                <div class="dungeon-events">
+                    <h3>📜 Event Log</h3>
+                    <div id="dungeon-event-log" class="event-log">
+                        <!-- Events will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- GAME SCREEN -->
         <div id="game-screen" class="screen" style="display: none;">
             <div id="main-container">
@@ -386,7 +449,8 @@
     <script src="src/matchmaking.js"></script>
     <script src="src/stashhub.js"></script>
     <script src="src/item_usage.js"></script>
-    <script src="src/dungeon_system.js"></script>
+    <script src="src/grid_dungeon_system.js"></script>
+    <script src="src/ascii_dungeon_system.js"></script>
     <script src="src/ui.js"></script>
     <script src="src/app.js"></script>
 </body>
