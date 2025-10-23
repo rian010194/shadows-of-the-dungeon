@@ -449,6 +449,21 @@ function showItemUsageCategory() {
         const actionButtonsContainer = document.getElementById('dungeon-action-buttons');
         if (!actionButtonsContainer) return;
         
+        const player = game.playerCharacter;
+        if (!player) return;
+        
+        // Get player's inventory items (equipped + found items)
+        const inventoryItems = player.inventory || [];
+        const usableItems = inventoryItems.filter(item => 
+            item.type === 'potion' || item.type === 'scroll' || item.type === 'consumable'
+        );
+        
+        // If no usable items, don't show this category
+        if (usableItems.length === 0) {
+            console.log('No usable items in inventory');
+            return;
+        }
+        
         // Add item usage header
         const itemHeader = document.createElement('h3');
         itemHeader.textContent = '🎒 Använd Föremål';
@@ -458,31 +473,25 @@ function showItemUsageCategory() {
         itemHeader.style.fontSize = '0.9em';
         actionButtonsContainer.appendChild(itemHeader);
     
-    // Create item usage buttons container
-    const itemContainer = document.createElement('div');
-    itemContainer.style.display = 'grid';
-    itemContainer.style.gridTemplateColumns = 'repeat(2, 1fr)';
-    itemContainer.style.gap = '5px';
-    itemContainer.style.marginBottom = '15px';
-    
-    // Placeholder buttons for now
-    const potionButton = document.createElement('button');
-    potionButton.textContent = '🧪 Använd helande dryck';
-    potionButton.className = 'action-btn';
-    potionButton.style.fontSize = '0.8em';
-    potionButton.style.padding = '6px 8px';
-    potionButton.onclick = () => addToDungeonLog('🧪 Du använder en helande dryck!', 'success');
-    itemContainer.appendChild(potionButton);
-    
-    const scrollButton = document.createElement('button');
-    scrollButton.textContent = '📜 Använd scroll';
-    scrollButton.className = 'action-btn';
-    scrollButton.style.fontSize = '0.8em';
-    scrollButton.style.padding = '6px 8px';
-    scrollButton.onclick = () => addToDungeonLog('📜 Du använder en magisk scroll!', 'success');
-    itemContainer.appendChild(scrollButton);
-    
-    actionButtonsContainer.appendChild(itemContainer);
+        // Create item usage buttons container
+        const itemContainer = document.createElement('div');
+        itemContainer.style.display = 'grid';
+        itemContainer.style.gridTemplateColumns = 'repeat(2, 1fr)';
+        itemContainer.style.gap = '5px';
+        itemContainer.style.marginBottom = '15px';
+        
+        // Add buttons for each usable item
+        usableItems.forEach(item => {
+            const button = document.createElement('button');
+            button.textContent = `${item.emoji || '📦'} Använd ${item.name}`;
+            button.className = 'action-btn';
+            button.style.fontSize = '0.8em';
+            button.style.padding = '6px 8px';
+            button.onclick = () => useItem(item);
+            itemContainer.appendChild(button);
+        });
+        
+        actionButtonsContainer.appendChild(itemContainer);
     } catch (error) {
         console.error('❌ Error in showItemUsageCategory:', error);
     }
@@ -1681,6 +1690,58 @@ function takeKey() {
 }
 
 // ----------------------------------------
+// Use Item From Inventory
+// ----------------------------------------
+function useItem(item) {
+    const player = game.playerCharacter;
+    
+    console.log('Using item:', item);
+    
+    if (!item.type) {
+        addToDungeonLog(`❌ Unknown item type`, 'warning');
+        return;
+    }
+    
+    // Remove item from inventory
+    const itemIndex = player.inventory.findIndex(inv => inv.name === item.name);
+    if (itemIndex > -1) {
+        player.inventory.splice(itemIndex, 1);
+    }
+    
+    // Handle different item types
+    switch(item.type) {
+        case 'potion':
+            if (item.name.toLowerCase().includes('helande') || item.name.toLowerCase().includes('healing')) {
+                // Healing potion - restore health/stamina
+                const staminarRestore = Math.min(calculateStamina(player), (player.currentStamina || 0) + 10);
+                player.currentStamina = staminarRestore;
+                addToDungeonLog(`🧪 Du använder ${item.name} och återställer 10 stamina!`, 'success');
+                updateStaminaDisplay(player);
+            } else {
+                addToDungeonLog(`🧪 Du använder ${item.name}!`, 'success');
+            }
+            break;
+            
+        case 'scroll':
+            addToDungeonLog(`📜 Du använder ${item.name} och en magisk effekt sprider sig!`, 'success');
+            break;
+            
+        case 'consumable':
+            addToDungeonLog(`📦 Du använder ${item.name}!`, 'success');
+            break;
+            
+        default:
+            addToDungeonLog(`Du använder ${item.name}!`, 'info');
+    }
+    
+    // Refresh actions
+    const room = currentDungeon.getRoomById(playerCurrentRoom[player.id]);
+    if (room) {
+        showAllActions(room);
+    }
+}
+
+// ----------------------------------------
 // Get Players in Room
 // ----------------------------------------
 function getPlayersInRoom(roomId) {
@@ -1702,3 +1763,4 @@ window.startDungeonExploration = startDungeonExploration;
     window.toggleDungeonView = toggleDungeonView;
     window.searchObject = searchObject;
     window.showAllActions = showAllActions;
+    window.useItem = useItem;
