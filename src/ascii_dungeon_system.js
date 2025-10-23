@@ -85,6 +85,12 @@ function showDungeonInterface() {
     const roomInfo = getRoomInfo(playerRoomId, hasKey);
     console.log('Room info:', roomInfo);
     
+    if (!roomInfo || !roomInfo.room) {
+        console.error('❌ Room info not found!');
+        addToDungeonLog('❌ Error loading room', 'error');
+        return;
+    }
+    
     // Update dungeon header
     document.getElementById('current-room-name').textContent = roomInfo.room.name;
     document.getElementById('current-room-coords').textContent = `(${roomInfo.room.x},${roomInfo.room.y})`;
@@ -1685,16 +1691,10 @@ function getPlayersInRoom(roomId) {
     return room ? room.playersInRoom : [];
 }
 
-// ----------------------------------------
-// Helper Functions - Use global functions directly
-// ----------------------------------------
-
-// ----------------------------------------
-// Initialize when page loads
-// ----------------------------------------
-if (typeof window !== 'undefined') {
-    // Make functions globally available
-    window.startDungeonExploration = startDungeonExploration;
+// ============================================
+// EXPORT FUNCTIONS TO WINDOW
+// ============================================
+window.startDungeonExploration = startDungeonExploration;
     window.showDungeonInterface = showDungeonInterface;
     window.moveInDirection = moveInDirection;
     window.startCombat = startCombat;
@@ -1705,4 +1705,3 @@ if (typeof window !== 'undefined') {
     window.toggleDungeonView = toggleDungeonView;
     window.searchObject = searchObject;
     window.showAllActions = showAllActions;
-}
