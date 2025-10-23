@@ -590,8 +590,7 @@ function moveInDirection(direction) {
     updateMinimap();
     updateRoomASCIIView(newRoom);
     
-    // Show room content and actions for the new room
-    showRoomContent({ room: newRoom, playersInRoom: [], hasKey: false });
+    // Show all actions for the new room (showRoomContent is NOT called to avoid recursion)
     showAllActions(newRoom);
     
     // Move player
@@ -805,10 +804,9 @@ function endNightPhase() {
     // Log day phase
     addToDungeonLog(`🌅 Day breaks... All players wake up with full stamina.`, 'info');
     
-    // Show normal actions
+    // Show normal actions (showRoomContent is NOT called to avoid recursion)
     const currentRoom = currentDungeon.getRoomById(playerCurrentRoom[game.playerCharacter.id]);
     if (currentRoom) {
-        showRoomContent({ room: currentRoom, playersInRoom: [], hasKey: false });
         showAllActions(currentRoom);
     }
     
