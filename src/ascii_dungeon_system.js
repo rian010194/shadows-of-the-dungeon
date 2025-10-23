@@ -258,14 +258,35 @@ function getRoomASCII(room) {
 // ----------------------------------------
 // Show All Actions (Organized)
 // ----------------------------------------
+let isShowingActions = false;
 function showAllActions(room) {
     try {
+        // Guard against multiple simultaneous calls
+        if (isShowingActions) {
+            console.log('⏳ Already showing actions, skipping...');
+            return;
+        }
+        
+        isShowingActions = true;
+        
+        // Safety timeout to prevent permanent locking (5 seconds)
+        const timeout = setTimeout(() => {
+            console.warn('⚠️ showAllActions timeout - resetting flag');
+            isShowingActions = false;
+        }, 5000);
+        
         console.log('showAllActions called with room:', room);
+        
         const actionButtonsContainer = document.getElementById('dungeon-action-buttons');
         if (!actionButtonsContainer) {
             console.log('❌ dungeon-action-buttons not found');
+            clearTimeout(timeout);
+            isShowingActions = false;
             return;
         }
+        
+        // Clear all existing buttons
+        actionButtonsContainer.innerHTML = '';
         
         // 1. MOVEMENT ACTIONS (4 buttons in a row)
         showMovementCategory(room);
@@ -275,8 +296,12 @@ function showAllActions(room) {
         
         // 3. ITEM USAGE ACTIONS
         showItemUsageCategory();
+        
+        clearTimeout(timeout);
+        isShowingActions = false;
     } catch (error) {
         console.error('❌ Error in showAllActions:', error);
+        isShowingActions = false;
     }
 }
 
@@ -459,65 +484,11 @@ function showItemUsageCategory() {
 }
 
 // ----------------------------------------
-// Show Movement Options
+// Show Movement Options (Deprecated - use showAllActions instead)
 // ----------------------------------------
 function showMovementOptions(playerId, roomId) {
-    const room = currentDungeon.getRoomById(roomId);
-    if (!room) return;
-    
-    const directions = getMovementOptions(roomId);
-    const actionButtonsContainer = document.getElementById('dungeon-action-buttons');
-    
-    // Don't clear previous buttons, just add movement buttons
-    
-    if (directions.length > 0) {
-        // Create movement buttons
-        directions.forEach(dir => {
-            const directionName = getDirectionName(dir);
-            const movementCost = 5;
-            const player = game.playerCharacter;
-            
-            const button = document.createElement('button');
-            button.textContent = `${getDirectionArrow(dir)} Gå ${directionName} (${movementCost} stamina)`;
-            button.className = 'action-btn';
-            
-            if (checkStamina(player, movementCost)) {
-                button.onclick = () => moveInDirection(dir);
-            } else {
-                button.disabled = true;
-                button.style.opacity = '0.5';
-                button.title = 'Not enough stamina!';
-            }
-            
-            actionButtonsContainer.appendChild(button);
-        });
-    } else {
-        // No movement options available - don't add message, just continue
-    }
-    
-    // Add search button
-    const player = game.playerCharacter;
-    const searchCost = calculateActionCost(10, player);
-    const searchButton = document.createElement('button');
-    searchButton.textContent = `🔍 Search Room (${searchCost} stamina)`;
-    searchButton.className = 'action-btn';
-    
-    if (checkStamina(player, searchCost)) {
-        searchButton.onclick = () => searchRoom();
-    } else {
-        searchButton.disabled = true;
-        searchButton.style.opacity = '0.5';
-        searchButton.title = 'Not enough stamina!';
-    }
-    
-    actionButtonsContainer.appendChild(searchButton);
-    
-    // Add rest button
-    const restButton = document.createElement('button');
-    restButton.textContent = '😴 Rest (Restore 5 stamina)';
-    restButton.className = 'action-btn';
-    restButton.onclick = () => rest();
-    actionButtonsContainer.appendChild(restButton);
+    // This function is deprecated - all actions are now handled by showAllActions
+    return;
 }
 
 // ----------------------------------------
@@ -1371,34 +1342,11 @@ ${playerIcons}
 }
 
 // ----------------------------------------
-// Show Interactive Objects
+// Show Interactive Objects (Deprecated - use showAllActions instead)
 // ----------------------------------------
 function showInteractiveObjects(room) {
-    const interactiveObjects = getRoomInteractiveObjects(room);
-    const actionButtons = document.getElementById('dungeon-action-buttons');
-    
-    if (!actionButtons) return;
-    
-    // Don't clear existing buttons, just add interactive object buttons
-    
-    if (interactiveObjects.length > 0) {
-        // Add header
-        const header = document.createElement('h3');
-        header.textContent = '🔍 Interaktiva objekt';
-        header.style.color = '#d4af37';
-        header.style.margin = '0 0 10px 0';
-        header.style.textAlign = 'center';
-        actionButtons.appendChild(header);
-        
-        // Add buttons for each object
-        interactiveObjects.forEach(obj => {
-            const button = document.createElement('button');
-            button.textContent = `${obj.icon} Sök igenom ${obj.name}`;
-            button.className = 'action-btn';
-            button.onclick = () => searchObject(obj);
-            actionButtons.appendChild(button);
-        });
-    }
+    // This function is deprecated - all actions are now handled by showAllActions
+    return;
 }
 
 // ----------------------------------------
