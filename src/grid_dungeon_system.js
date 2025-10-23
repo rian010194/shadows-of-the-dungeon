@@ -349,6 +349,11 @@ class GridDungeon {
         }
         return map;
     }
+    
+    // Get all rooms as an array
+    getAllRooms() {
+        return Array.from(this.rooms.values());
+    }
 }
 
 // Export for use in other files

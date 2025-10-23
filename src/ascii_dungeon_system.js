@@ -2,6 +2,31 @@
 // ASCII DUNGEON VISUALIZATION SYSTEM
 // ============================================
 
+// ----------------------------------------
+// Assign Random Classes to AI Players
+// ----------------------------------------
+function assignRandomClassesToAI() {
+    const characterClasses = [
+        { name: 'Mage', strength: 2, vitality: 3, agility: 2, intelligence: 8 },
+        { name: 'Warrior', strength: 8, vitality: 6, agility: 2, intelligence: 2 },
+        { name: 'Rogue', strength: 4, vitality: 3, agility: 8, intelligence: 3 },
+        { name: 'Seer', strength: 3, vitality: 4, agility: 3, intelligence: 7 }
+    ];
+    
+    game.players.forEach(player => {
+        if (!player.isPlayer) { // AI players only
+            const randomClass = characterClasses[Math.floor(Math.random() * characterClasses.length)];
+            player.characterClass = randomClass.name;
+            player.strength = randomClass.strength;
+            player.vitality = randomClass.vitality;
+            player.agility = randomClass.agility;
+            player.intelligence = randomClass.intelligence;
+            
+            console.log(`AI Player ${player.name} assigned class: ${randomClass.name}`);
+        }
+    });
+}
+
 // Global variables for dungeon state
 let currentDungeon = null;
 let playerCurrentRoom = {}; // Track which room each player is in
@@ -39,12 +64,26 @@ function startDungeonExploration() {
     currentDungeon = new GridDungeon(5, 5);
     console.log('GridDungeon created:', currentDungeon);
     
-    // Place all players in the start room
-    console.log('Placing players in start room...');
+    // Give AI players random character classes
+    assignRandomClassesToAI();
+    
+    // Place players in rooms
+    console.log('Placing players in rooms...');
     game.players.forEach(player => {
         console.log('Placing player:', player.name);
-        playerCurrentRoom[player.id] = currentDungeon.startRoom.id;
-        currentDungeon.startRoom.playersInRoom.push(player.id);
+        
+        if (player.isPlayer) {
+            // Human player starts in start room
+            playerCurrentRoom[player.id] = currentDungeon.startRoom.id;
+            currentDungeon.startRoom.playersInRoom.push(player.id);
+        } else {
+            // AI players start in random rooms
+            const allRooms = currentDungeon.getAllRooms();
+            const randomRoom = allRooms[Math.floor(Math.random() * allRooms.length)];
+            playerCurrentRoom[player.id] = randomRoom.id;
+            randomRoom.playersInRoom.push(player.id);
+            console.log(`AI Player ${player.name} placed in room: ${randomRoom.name}`);
+        }
         
         // Initialize stamina
         player.currentStamina = calculateStamina(player);
@@ -747,7 +786,14 @@ function updateStaminaDisplay(player) {
 // ----------------------------------------
 function checkAllPlayersAsleep() {
     const players = game.players || [];
-    return players.every(player => {
+    const humanPlayer = game.playerCharacter;
+    
+    // Check if all non-human players are out of stamina
+    const aiPlayers = players.filter(player => player.id !== humanPlayer.id);
+    
+    if (aiPlayers.length === 0) return false; // No AI players
+    
+    return aiPlayers.every(player => {
         const currentStamina = player.currentStamina || calculateStamina(player);
         return currentStamina <= 0;
     });
@@ -1313,6 +1359,22 @@ function getMinimapIcon(room) {
 }
 
 // ----------------------------------------
+// Get Player Class Icon
+// ----------------------------------------
+function getPlayerClassIcon(player) {
+    if (!player.characterClass) return '👤'; // Default icon
+    
+    const classIcons = {
+        'Mage': '🧙‍♂️',
+        'Warrior': '⚔️',
+        'Rogue': '🗡️',
+        'Seer': '🔮'
+    };
+    
+    return classIcons[player.characterClass] || '👤';
+}
+
+// ----------------------------------------
 // Get Detailed Room ASCII
 // ----------------------------------------
 function getDetailedRoomASCII(room) {
@@ -1320,7 +1382,11 @@ function getDetailedRoomASCII(room) {
     const playersInRoom = room.playersInRoom || [];
     const playerIcons = playersInRoom.map(playerId => {
         const player = game.players.find(p => p.id === playerId);
-        return player ? `👤 ${player.name}` : '👤 Unknown';
+        if (!player) return '👤 Unknown';
+        
+        // Get ASCII icon based on character class
+        const classIcon = getPlayerClassIcon(player);
+        return `${classIcon} ${player.name}`;
     }).join('\n');
     
     const roomTemplates = {

@@ -17,6 +17,14 @@ class Player {
         this.escaped = false;
         this.isPlayer = isPlayer; // True if this is the human player
         this.stash = []; // Escaped loot
+        
+        // Character class properties
+        this.characterClass = null;
+        this.strength = 0;
+        this.vitality = 0;
+        this.agility = 0;
+        this.intelligence = 0;
+        this.currentStamina = 0;
     }
 }
 
