@@ -45,6 +45,10 @@ function startDungeonExploration() {
         console.log('Placing player:', player.name);
         playerCurrentRoom[player.id] = currentDungeon.startRoom.id;
         currentDungeon.startRoom.playersInRoom.push(player.id);
+        
+        // Initialize stamina
+        player.currentStamina = calculateStamina(player);
+        console.log(`Player ${player.name} stamina initialized: ${player.currentStamina}`);
     });
     
     // Mark start room as explored
@@ -97,6 +101,9 @@ function showDungeonInterface() {
     
     // Update core gameplay info
     updateCoreGameplayInfo();
+    
+    // Update stamina display
+    updateStaminaDisplay(game.playerCharacter);
     
     showRoomContent(roomInfo);
     
