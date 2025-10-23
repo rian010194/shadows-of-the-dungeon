@@ -338,7 +338,7 @@ function showMovementCategory(room) {
         const directions = getMovementOptions(`${room.x},${room.y}`);
         console.log('Movement directions:', directions);
         const player = game.playerCharacter;
-        const movementCost = 5;
+        const movementCost = 10;
     
     if (directions.length > 0) {
         directions.forEach(dir => {
@@ -578,7 +578,7 @@ function moveInDirection(direction) {
     }
     
     // Check stamina cost for movement
-    const movementCost = 5; // Base movement cost
+    const movementCost = 10; // Base movement cost
     const player = game.playerCharacter;
     
     if (!checkStamina(player, movementCost)) {
@@ -961,7 +961,7 @@ function decideAIAction(player) {
     const directions = ['north', 'south', 'east', 'west'];
     directions.forEach(direction => {
         if (currentRoom.directions[direction]) {
-            const movementCost = 5;
+            const movementCost = 10;
             if (checkStamina(player, movementCost)) {
                 actions.push({
                     type: 'move',
