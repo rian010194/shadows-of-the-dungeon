@@ -190,9 +190,8 @@ function showRoomContent(roomInfo) {
         showEmptyRoom(room);
     }
     
-    // Show room content and actions
-    showRoomContent({ room: room, playersInRoom: [], hasKey: false });
-    showAllActions(room);
+    // Don't show room content again here - this causes infinite recursion!
+    // showRoomContent is only called once from showDungeonInterface
 }
 
 // ----------------------------------------
