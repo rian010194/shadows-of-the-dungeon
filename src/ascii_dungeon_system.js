@@ -14,7 +14,7 @@ function assignRandomClassesToAI() {
     ];
     
     game.players.forEach(player => {
-        if (!player.isPlayer) { // AI players only
+        if (player && !player.isPlayer) { // AI players only
             const randomClass = characterClasses[Math.floor(Math.random() * characterClasses.length)];
             player.characterClass = randomClass.name;
             player.strength = randomClass.strength;
@@ -34,14 +34,21 @@ let roomEvents = {}; // Track events happening in rooms
 let exploredRooms = new Set(); // Track which rooms have been explored
 
 // Corrupted system
-let corruptedPlayer = null;
+let corruptedPlayers = []; // Array to support multiple corrupted players
 let nightPhase = false;
 let nightTimer = null;
 let allPlayersAsleep = false;
 
 // AI system
 let aiTimer = null;
-let aiInterval = 5000; // 5 seconds between AI actions
+let aiInterval = 3000; // 3 seconds between AI action cycles (reduced for testing)
+let aiActionDelay = 2000; // 2-7 seconds delay between individual AI actions
+
+// Game timer system
+let gameTimer = null;
+let dayPhaseStartTime = null;
+let dayPhaseDuration = 120000; // 2 minutes in milliseconds
+let gameStartTime = null;
 
 // ----------------------------------------
 // Initialize ASCII Dungeon
@@ -72,17 +79,12 @@ function startDungeonExploration() {
     game.players.forEach(player => {
         console.log('Placing player:', player.name);
         
-        if (player.isPlayer) {
-            // Human player starts in start room
-            playerCurrentRoom[player.id] = currentDungeon.startRoom.id;
-            currentDungeon.startRoom.playersInRoom.push(player.id);
-        } else {
-            // AI players start in random rooms
-            const allRooms = currentDungeon.getAllRooms();
-            const randomRoom = allRooms[Math.floor(Math.random() * allRooms.length)];
-            playerCurrentRoom[player.id] = randomRoom.id;
-            randomRoom.playersInRoom.push(player.id);
-            console.log(`AI Player ${player.name} placed in room: ${randomRoom.name}`);
+        // All players start in the same room (start room)
+        playerCurrentRoom[player.id] = currentDungeon.startRoom.id;
+        currentDungeon.startRoom.playersInRoom.push(player.id);
+        
+        if (!player.isPlayer) {
+            console.log(`AI Player ${player.name} placed in room: ${currentDungeon.startRoom.name}`);
         }
         
         // Initialize stamina
@@ -107,6 +109,9 @@ function startDungeonExploration() {
     
     // Start AI timer
     startAITimer();
+    
+    // Start game timer
+    startGameTimer();
 }
 
 // ----------------------------------------
@@ -117,7 +122,6 @@ function showDungeonInterface() {
     
     // Show the dungeon exploration screen
     document.getElementById('dungeon-exploration-screen').style.display = 'block';
-    document.getElementById('game-screen').style.display = 'none';
     
     const playerId = game.playerCharacter.id;
     const playerRoomId = playerCurrentRoom[playerId];
@@ -144,6 +148,12 @@ function showDungeonInterface() {
     // Update stamina display
     updateStaminaDisplay(game.playerCharacter);
     
+    // Update items display
+    updatePlayerItemsDisplay();
+    
+    // Update room players display
+    updateRoomPlayersDisplay();
+    
     showRoomContent(roomInfo);
     
     // Show all actions after room content
@@ -152,7 +162,10 @@ function showDungeonInterface() {
     
     // Show ASCII dungeon map
     console.log('Rendering ASCII dungeon map...');
-    renderASCIIDungeonMap();
+    updateMinimap();
+    
+    // Generate dynamic event filters
+    generateEventFilters();
 }
 
 // ----------------------------------------
@@ -362,52 +375,35 @@ function showAllActions(room) {
 function showMovementCategory(room) {
     try {
         console.log('showMovementCategory called with room:', room);
-        const actionButtonsContainer = document.getElementById('dungeon-action-buttons');
-        if (!actionButtonsContainer) return;
+        const movementButtonsContainer = document.getElementById('movement-buttons');
+        if (!movementButtonsContainer) return;
         
-        // Add movement header
-        const movementHeader = document.createElement('h3');
-        movementHeader.textContent = '🚶 Rörelse';
-        movementHeader.style.color = '#4CAF50';
-        movementHeader.style.margin = '0 0 8px 0';
-        movementHeader.style.textAlign = 'center';
-        movementHeader.style.fontSize = '0.9em';
-        actionButtonsContainer.appendChild(movementHeader);
-        
-        // Create movement buttons container
-        const movementContainer = document.createElement('div');
-        movementContainer.style.display = 'grid';
-        movementContainer.style.gridTemplateColumns = 'repeat(4, 1fr)';
-        movementContainer.style.gap = '5px';
-        movementContainer.style.marginBottom = '15px';
+        // Clear existing movement buttons
+        movementButtonsContainer.innerHTML = '';
         
         const directions = getMovementOptions(`${room.x},${room.y}`);
         console.log('Movement directions:', directions);
         const player = game.playerCharacter;
         const movementCost = 10;
     
-    if (directions.length > 0) {
-        directions.forEach(dir => {
-            const directionName = getDirectionName(dir);
-            const button = document.createElement('button');
-            button.textContent = `${getDirectionArrow(dir)} ${directionName}`;
-            button.className = 'action-btn';
-            button.style.fontSize = '0.8em';
-            button.style.padding = '6px 8px';
-            
-            if (checkStamina(player, movementCost)) {
-                button.onclick = () => moveInDirection(dir);
-            } else {
-                button.disabled = true;
-                button.style.opacity = '0.5';
-                button.title = 'Not enough stamina!';
-            }
-            
-            movementContainer.appendChild(button);
-        });
-    }
-    
-    actionButtonsContainer.appendChild(movementContainer);
+        if (directions.length > 0) {
+            directions.forEach(dir => {
+                const directionName = getDirectionName(dir);
+                const button = document.createElement('button');
+                button.textContent = `${getDirectionArrow(dir)} ${directionName}`;
+                button.className = 'action-btn movement-btn';
+                
+                if (checkStamina(player, movementCost)) {
+                    button.onclick = () => moveInDirection(dir);
+                } else {
+                    button.disabled = true;
+                    button.style.opacity = '0.5';
+                    button.title = 'Not enough stamina!';
+                }
+                
+                movementButtonsContainer.appendChild(button);
+            });
+        }
     } catch (error) {
         console.error('❌ Error in showMovementCategory:', error);
     }
@@ -441,12 +437,10 @@ function showRoomInteractionCategory(room) {
     const player = game.playerCharacter;
     
     // Search Room button
-    const searchCost = calculateActionCost(10, player);
+    const searchCost = calculateActionCost(5, player);
     const searchButton = document.createElement('button');
     searchButton.textContent = `🔍 Sök rum (${searchCost} stamina)`;
-    searchButton.className = 'action-btn';
-    searchButton.style.fontSize = '0.8em';
-    searchButton.style.padding = '6px 8px';
+    searchButton.className = 'action-btn search-btn';
     
     if (checkStamina(player, searchCost)) {
         searchButton.onclick = () => searchRoom();
@@ -458,13 +452,7 @@ function showRoomInteractionCategory(room) {
     interactionContainer.appendChild(searchButton);
     
     // Rest button
-    const restButton = document.createElement('button');
-    restButton.textContent = '😴 Vila (Återställ 5 stamina)';
-    restButton.className = 'action-btn';
-    restButton.style.fontSize = '0.8em';
-    restButton.style.padding = '6px 8px';
-    restButton.onclick = () => rest();
-    interactionContainer.appendChild(restButton);
+    // Rest functionality removed - players cannot recover stamina by resting
     
     // Interactive objects
     const interactiveObjects = getRoomInteractiveObjects(room);
@@ -472,9 +460,7 @@ function showRoomInteractionCategory(room) {
         interactiveObjects.forEach(obj => {
             const button = document.createElement('button');
             button.textContent = `${obj.icon} Sök ${obj.name}`;
-            button.className = 'action-btn';
-            button.style.fontSize = '0.8em';
-            button.style.padding = '6px 8px';
+            button.className = 'action-btn interactive-btn';
             button.onclick = () => searchObject(obj);
             interactionContainer.appendChild(button);
         });
@@ -530,9 +516,7 @@ function showItemUsageCategory() {
         usableItems.forEach(item => {
             const button = document.createElement('button');
             button.textContent = `${item.emoji || '📦'} Använd ${item.name}`;
-            button.className = 'action-btn';
-            button.style.fontSize = '0.8em';
-            button.style.padding = '6px 8px';
+            button.className = 'action-btn interactive-btn';
             button.onclick = () => useItem(item);
             itemContainer.appendChild(button);
         });
@@ -590,6 +574,19 @@ function getDirectionName(direction) {
 }
 
 // ----------------------------------------
+// Get Opposite Direction
+// ----------------------------------------
+function getOppositeDirection(direction) {
+    const oppositeDirections = {
+        'north': 'south',
+        'south': 'north',
+        'east': 'west',
+        'west': 'east'
+    };
+    return getDirectionName(oppositeDirections[direction] || direction);
+}
+
+// ----------------------------------------
 // Get Direction Arrow
 // ----------------------------------------
 function getDirectionArrow(direction) {
@@ -624,7 +621,7 @@ function moveInDirection(direction) {
     }
     
     // Check stamina cost for movement
-    const movementCost = 10; // Base movement cost
+    const movementCost = 5; // Base movement cost (reduced for better balance)
     const player = game.playerCharacter;
     
     if (!checkStamina(player, movementCost)) {
@@ -655,12 +652,31 @@ function moveInDirection(direction) {
     room.playersInRoom = room.playersInRoom.filter(id => id !== playerId);
     newRoom.playersInRoom.push(playerId);
     
-    // Mark room as explored
+    // Mark room as explored (only for human player)
     const roomId = `${newRoom.x},${newRoom.y}`;
     const wasExplored = exploredRooms.has(roomId);
-    exploredRooms.add(roomId);
+    if (playerId === game.playerCharacter.id) {
+        exploredRooms.add(roomId);
+    }
+    
+    // Track action for other players to see
+    game.playerCharacter.lastAction = `moved ${getDirectionName(direction)}`;
     
     addToDungeonLog(`🚶 Du går ${getDirectionName(direction)} till ${newRoom.name} (${movementCost} stamina used)`, 'info');
+    
+    // Add suspicious action if player moves at night or does something unusual
+    if (nightPhase && game.playerCharacter.role === 'Corrupted') {
+        if (typeof window.addSuspiciousAction === 'function') {
+            window.addSuspiciousAction(game.playerCharacter.id, 'night_movement', `moved ${getDirectionName(direction)} during night phase`);
+        }
+    }
+    
+    // Show movement to other players in the same room
+    const otherPlayersInRoom = room.playersInRoom.filter(id => id !== game.playerCharacter.id);
+    
+    if (otherPlayersInRoom.length > 0) {
+        addToDungeonLog(`👀 Other players see you heading ${getDirectionName(direction)}`, 'info');
+    }
     
     // If this is a new room, add discovery message
     if (!wasExplored) {
@@ -684,6 +700,57 @@ function moveInDirection(direction) {
 }
 
 // ----------------------------------------
+// Game Timer Functions
+// ----------------------------------------
+function startGameTimer() {
+    gameStartTime = Date.now();
+    dayPhaseStartTime = Date.now();
+    
+    // Update timer display every second
+    gameTimer = setInterval(() => {
+        updateGameTimerDisplay();
+        checkDayPhaseTimeout();
+    }, 1000);
+    
+    addToDungeonLog('⏰ Game timer started - 1 minute day phase begins!', 'system');
+}
+
+function stopGameTimer() {
+    if (gameTimer) {
+        clearInterval(gameTimer);
+        gameTimer = null;
+    }
+}
+
+function updateGameTimerDisplay() {
+    const timerElement = document.getElementById('game-timer');
+    if (timerElement && gameStartTime) {
+        const elapsed = Date.now() - gameStartTime;
+        const minutes = Math.floor(elapsed / 60000);
+        const seconds = Math.floor((elapsed % 60000) / 1000);
+        timerElement.textContent = `⏱️ ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+}
+
+function checkDayPhaseTimeout() {
+    if (!nightPhase && dayPhaseStartTime) {
+        const elapsed = Date.now() - dayPhaseStartTime;
+        if (elapsed >= dayPhaseDuration) {
+            addToDungeonLog('⏰ Day phase timeout! Forcing night phase...', 'system');
+            startNightPhase();
+        }
+    }
+}
+
+function getCurrentTimestamp() {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+}
+
+// ----------------------------------------
 // Add to Dungeon Log
 // ----------------------------------------
 function addToDungeonLog(message, type = 'info') {
@@ -691,8 +758,24 @@ function addToDungeonLog(message, type = 'info') {
     if (dungeonEventLog) {
         const entry = document.createElement('div');
         entry.className = `event-entry event-${type}`;
-        entry.textContent = message;
+        
+        // Add timestamp to the message
+        const timestamp = getCurrentTimestamp();
+        entry.innerHTML = `<span class="event-timestamp">[${timestamp}]</span> ${message}`;
+        
         dungeonEventLog.appendChild(entry);
+        
+        // Limit to maximum 10 events
+        const maxEvents = 10;
+        const events = dungeonEventLog.querySelectorAll('.event-entry');
+        if (events.length > maxEvents) {
+            // Remove the oldest events (first ones)
+            for (let i = 0; i < events.length - maxEvents; i++) {
+                events[i].remove();
+            }
+        }
+        
+        // Auto-scroll to bottom to show newest events
         dungeonEventLog.scrollTop = dungeonEventLog.scrollHeight;
     }
 }
@@ -701,15 +784,35 @@ function addToDungeonLog(message, type = 'info') {
 // Update Core Gameplay Info
 // ----------------------------------------
 function updateCoreGameplayInfo() {
-    // Update stamina based on strength + vitality
+    // Update stamina display for human player only
     const player = game.playerCharacter;
-    const stamina = calculateStamina(player);
-    document.getElementById('current-stamina').textContent = `⚡ Stamina: ${stamina}`;
+    const currentStamina = player.currentStamina !== undefined ? player.currentStamina : calculateStamina(player);
+    const maxStamina = calculateStamina(player);
+    document.getElementById('current-stamina').textContent = `⚡ Stamina: ${currentStamina}/${maxStamina}`;
     
     // Update time of day
     const timeIcon = game.timeOfDay === 'night' ? '🌙' : '🌅';
     const timeText = game.timeOfDay === 'night' ? 'Night' : 'Day';
     document.getElementById('time-of-day').textContent = `${timeIcon} ${timeText}`;
+    
+    // Update corruption status
+    const corruptionElement = document.getElementById('corruption-status');
+    if (corruptionElement) {
+        if (nightPhase && corruptedPlayers.length > 0) {
+            const isPlayerCorrupted = corruptedPlayers.some(cp => cp.id === player.id);
+            if (isPlayerCorrupted) {
+                corruptionElement.textContent = '👹 You are corrupted!';
+                corruptionElement.style.color = '#ff0000';
+            } else {
+                const corruptedNames = corruptedPlayers.map(cp => cp.name).join(', ');
+                corruptionElement.textContent = `👹 ${corruptedNames} ${corruptedPlayers.length === 1 ? 'is' : 'are'} corrupted!`;
+                corruptionElement.style.color = '#ff0000';
+            }
+        } else {
+            corruptionElement.textContent = '😇 Day Phase';
+            corruptionElement.style.color = '#00ff00';
+        }
+    }
 }
 
 // ----------------------------------------
@@ -744,7 +847,7 @@ function calculateActionCost(baseCost, player) {
 // Check Stamina
 // ----------------------------------------
 function checkStamina(player, actionCost) {
-    const currentStamina = player.currentStamina || calculateStamina(player);
+    const currentStamina = player.currentStamina !== undefined ? player.currentStamina : calculateStamina(player);
     return currentStamina >= actionCost;
 }
 
@@ -752,19 +855,26 @@ function checkStamina(player, actionCost) {
 // Use Stamina
 // ----------------------------------------
 function useStamina(player, actionCost) {
-    if (!player.currentStamina) {
+    if (player.currentStamina === undefined || player.currentStamina === null) {
         player.currentStamina = calculateStamina(player);
     }
     
+    const oldStamina = player.currentStamina;
     player.currentStamina = Math.max(0, player.currentStamina - actionCost);
+    
+    // Debug logging for all players
+    console.log(`⚡ ${player.name} stamina: ${oldStamina} → ${player.currentStamina} (cost: ${actionCost})`);
     
     // Check if all players are out of stamina after this action
     if (checkAllPlayersAsleep()) {
+        console.log('🌙 All players asleep, starting night phase...');
         startNightPhase();
     }
     
-    // Update stamina display
-    updateStaminaDisplay(player);
+    // Update stamina display (only for human player)
+    if (player.isPlayer) {
+        updateStaminaDisplay(player);
+    }
     
     return player.currentStamina;
 }
@@ -775,10 +885,120 @@ function useStamina(player, actionCost) {
 function updateStaminaDisplay(player) {
     const staminaElement = document.getElementById('current-stamina');
     if (staminaElement) {
-        const currentStamina = player.currentStamina || calculateStamina(player);
+        const currentStamina = player.currentStamina !== undefined ? player.currentStamina : calculateStamina(player);
         const maxStamina = calculateStamina(player);
         staminaElement.textContent = `⚡ Stamina: ${currentStamina}/${maxStamina}`;
     }
+}
+
+// ----------------------------------------
+// Update Player Items Display
+// ----------------------------------------
+function updatePlayerItemsDisplay() {
+    const itemsContainer = document.getElementById('dungeon-player-items');
+    if (!itemsContainer || !game.playerCharacter) return;
+    
+    const items = game.playerCharacter.inventory || [];
+    
+    itemsContainer.innerHTML = '';
+    
+    if (items.length === 0) {
+        const noItemsDiv = document.createElement('div');
+        noItemsDiv.className = 'no-items';
+        noItemsDiv.textContent = 'No items yet...';
+        itemsContainer.appendChild(noItemsDiv);
+        return;
+    }
+    
+    items.forEach(item => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'item-display';
+        
+        const itemName = document.createElement('span');
+        itemName.className = 'item-name';
+        itemName.textContent = item.name;
+        
+        const itemEffect = document.createElement('span');
+        itemEffect.className = 'item-effect';
+        itemEffect.textContent = item.effect;
+        
+        itemDiv.appendChild(itemName);
+        itemDiv.appendChild(itemEffect);
+        
+        // Add click handler for using items
+        itemDiv.onclick = () => useItem(item);
+        itemDiv.style.cursor = 'pointer';
+        itemDiv.title = `Click to use: ${item.effect}`;
+        
+        itemsContainer.appendChild(itemDiv);
+    });
+}
+
+// ----------------------------------------
+// Update Room Players Display
+// ----------------------------------------
+function updateRoomPlayersDisplay() {
+    const playersContainer = document.getElementById('dungeon-room-players');
+    if (!playersContainer || !game.playerCharacter) return;
+    
+    const currentRoomId = playerCurrentRoom[game.playerCharacter.id];
+    const currentRoom = currentDungeon.getRoomById(currentRoomId);
+    
+    if (!currentRoom) return;
+    
+    const playersInRoom = currentRoom.playersInRoom || [];
+    const otherPlayers = playersInRoom.filter(playerId => playerId !== game.playerCharacter.id);
+    
+    playersContainer.innerHTML = '';
+    
+    if (otherPlayers.length === 0) {
+        const noPlayersDiv = document.createElement('div');
+        noPlayersDiv.className = 'no-players';
+        noPlayersDiv.textContent = 'You are alone in this room...';
+        playersContainer.appendChild(noPlayersDiv);
+        return;
+    }
+    
+    otherPlayers.forEach(playerId => {
+        const player = game.players.find(p => p.id === playerId);
+        if (!player) return;
+        
+        const playerDiv = document.createElement('div');
+        playerDiv.className = 'player-in-room';
+        
+        const playerName = document.createElement('span');
+        playerName.className = 'player-name';
+        playerName.textContent = player.name;
+        
+        const playerStatus = document.createElement('span');
+        playerStatus.className = 'player-status';
+        
+        // Show player status
+        if (player.isDead) {
+            playerStatus.textContent = '💀 Dead';
+            playerStatus.style.color = '#ff6b6b';
+        } else if (player.escaped) {
+            playerStatus.textContent = '🚪 Escaped';
+            playerStatus.style.color = '#51cf66';
+        } else {
+            const stamina = player.currentStamina || calculateStamina(player);
+            const maxStamina = calculateStamina(player);
+            playerStatus.textContent = `⚡ ${stamina}/${maxStamina}`;
+        }
+        
+        playerDiv.appendChild(playerName);
+        playerDiv.appendChild(playerStatus);
+        
+        // Add recent action if available
+        if (player.lastAction) {
+            const actionSpan = document.createElement('span');
+            actionSpan.className = 'player-action';
+            actionSpan.textContent = player.lastAction;
+            playerDiv.appendChild(actionSpan);
+        }
+        
+        playersContainer.appendChild(playerDiv);
+    });
 }
 
 // ----------------------------------------
@@ -786,17 +1006,23 @@ function updateStaminaDisplay(player) {
 // ----------------------------------------
 function checkAllPlayersAsleep() {
     const players = game.players || [];
-    const humanPlayer = game.playerCharacter;
     
-    // Check if all non-human players are out of stamina
-    const aiPlayers = players.filter(player => player.id !== humanPlayer.id);
+    // Check if all players (including human) have insufficient stamina for any action
+    // Minimum action cost is 1 stamina (for searching objects)
+    const minimumStaminaNeeded = 1;
     
-    if (aiPlayers.length === 0) return false; // No AI players
+    console.log('🔍 Checking if all players are asleep...');
     
-    return aiPlayers.every(player => {
-        const currentStamina = player.currentStamina || calculateStamina(player);
-        return currentStamina <= 0;
+    // Check all players including human player
+    const allAsleep = players.every(player => {
+        const currentStamina = player.currentStamina !== undefined ? player.currentStamina : calculateStamina(player);
+        const isAsleep = currentStamina < minimumStaminaNeeded;
+        console.log(`🔍 Player ${player.name}: ${currentStamina} stamina (asleep: ${isAsleep})`);
+        return isAsleep;
     });
+    
+    console.log(`🔍 All players asleep: ${allAsleep}`);
+    return allAsleep;
 }
 
 // ----------------------------------------
@@ -808,27 +1034,36 @@ function startNightPhase() {
     nightPhase = true;
     allPlayersAsleep = true;
     
-    // Select corrupted player (random for now)
+    // Select corrupted players based on player count
     const players = game.players || [];
+    corruptedPlayers = []; // Reset corrupted players
+    
     if (players.length > 0) {
-        corruptedPlayer = players[Math.floor(Math.random() * players.length)];
-        corruptedPlayer.currentStamina = calculateStamina(corruptedPlayer); // Full stamina
+        const numCorrupted = players.length <= 5 ? 1 : 2; // 1 for 1-5 players, 2 for 6+ players
+        
+        // Select random corrupted players
+        const availablePlayers = [...players]; // Copy array to avoid modifying original
+        for (let i = 0; i < numCorrupted && availablePlayers.length > 0; i++) {
+            const randomIndex = Math.floor(Math.random() * availablePlayers.length);
+            const corruptedPlayer = availablePlayers.splice(randomIndex, 1)[0];
+            corruptedPlayer.currentStamina = calculateStamina(corruptedPlayer); // Full stamina
+            corruptedPlayers.push(corruptedPlayer);
+        }
     }
     
     // Update UI
     updateCoreGameplayInfo();
     
     // Log night phase
-    addToDungeonLog(`🌙 Night falls... All players are asleep except the corrupted one.`, 'warning');
-    addToDungeonLog(`👹 ${corruptedPlayer.name} is corrupted and has full stamina!`, 'danger');
+    const corruptedNames = corruptedPlayers.map(p => p.name).join(', ');
+    addToDungeonLog(`🌙 Night falls... All players are asleep except the corrupted ones.`, 'warning');
+    addToDungeonLog(`👹 ${corruptedNames} ${corruptedPlayers.length === 1 ? 'is' : 'are'} corrupted and ${corruptedPlayers.length === 1 ? 'has' : 'have'} full stamina!`, 'danger');
     
     // Stop AI timer during night phase
     stopAITimer();
     
-    // Start 30 second timer for corrupted player
-    nightTimer = setTimeout(() => {
-        endNightPhase();
-    }, 30000);
+    // Night phase continues until corrupted player makes a choice
+    // No automatic timer - night phase only ends when corrupted player acts
     
     // Show corrupted player actions
     showCorruptedActions();
@@ -849,16 +1084,14 @@ function endNightPhase() {
         nightTimer = null;
     }
     
-    // Reset all players' stamina (except corrupted)
-    const players = game.players || [];
-    players.forEach(player => {
-        if (player !== corruptedPlayer) {
-            player.currentStamina = calculateStamina(player);
-        }
-    });
+    // Don't reset stamina - players should keep their current stamina
+    // The night phase is just a special phase, not a stamina reset
     
-    // Clear corrupted player
-    corruptedPlayer = null;
+    // Clear corrupted players
+    corruptedPlayers = [];
+    
+    // Reset day phase timer
+    dayPhaseStartTime = Date.now();
     
     // Update UI
     updateCoreGameplayInfo();
@@ -866,22 +1099,28 @@ function endNightPhase() {
     // Log day phase
     addToDungeonLog(`🌅 Day breaks... All players wake up with full stamina.`, 'info');
     
-    // Show normal actions (showRoomContent is NOT called to avoid recursion)
-    const currentRoom = currentDungeon.getRoomById(playerCurrentRoom[game.playerCharacter.id]);
-    if (currentRoom) {
-        showAllActions(currentRoom);
+    // Start voting phase instead of continuing exploration
+    if (typeof window.startVotingPhase === 'function') {
+        window.startVotingPhase();
+    } else {
+        // Fallback - show normal actions
+        const currentRoom = currentDungeon.getRoomById(playerCurrentRoom[game.playerCharacter.id]);
+        if (currentRoom) {
+            showAllActions(currentRoom);
+        }
+        
+        // Restart AI timer
+        startAITimer();
     }
-    
-    // Restart AI timer
-    startAITimer();
 }
 
 // ----------------------------------------
 // Show Corrupted Player Actions
 // ----------------------------------------
 function showCorruptedActions() {
-    if (!corruptedPlayer || corruptedPlayer.id !== game.playerCharacter.id) {
-        // Not the corrupted player - show sleep message
+    const isPlayerCorrupted = corruptedPlayers.some(cp => cp.id === game.playerCharacter.id);
+    if (!isPlayerCorrupted) {
+        // Not a corrupted player - show sleep message
         const actionButtons = document.getElementById('dungeon-action-buttons');
         if (actionButtons) {
             actionButtons.innerHTML = '<button class="action-btn" disabled>😴 Sleeping...</button>';
@@ -910,7 +1149,7 @@ function showCorruptedActions() {
             if (room.directions[direction]) {
                 const button = document.createElement('button');
                 button.textContent = directionLabels[direction];
-                button.className = 'action-btn';
+                button.className = 'action-btn movement-btn';
                 button.onclick = () => moveInDirection(direction);
                 actionButtons.appendChild(button);
             }
@@ -920,15 +1159,17 @@ function showCorruptedActions() {
     // Murder attempt button
     const murderButton = document.createElement('button');
     murderButton.textContent = '🗡️ Attempt Murder';
-    murderButton.className = 'action-btn danger';
+    murderButton.className = 'action-btn';
+    murderButton.style.background = 'linear-gradient(135deg, #8b0000, #5a0000)';
+    murderButton.style.borderColor = '#d4af37';
     murderButton.onclick = () => attemptMurder();
     actionButtons.appendChild(murderButton);
     
     // Search room button
-    const searchCost = calculateActionCost(10, corruptedPlayer);
+    const searchCost = calculateActionCost(5, corruptedPlayer);
     const searchButton = document.createElement('button');
     searchButton.textContent = `🔍 Search Room (${searchCost} stamina)`;
-    searchButton.className = 'action-btn';
+    searchButton.className = 'action-btn search-btn';
     
     if (checkStamina(corruptedPlayer, searchCost)) {
         searchButton.onclick = () => searchRoom();
@@ -944,13 +1185,15 @@ function showCorruptedActions() {
 // Attempt Murder
 // ----------------------------------------
 function attemptMurder() {
-    if (!corruptedPlayer || corruptedPlayer.id !== game.playerCharacter.id) return;
+    const isPlayerCorrupted = corruptedPlayers.some(cp => cp.id === game.playerCharacter.id);
+    if (!isPlayerCorrupted) return;
     
     const currentRoom = getCurrentRoom();
     if (!currentRoom) return;
     
-    // Find other players in the same room
-    const otherPlayers = currentRoom.playersInRoom.filter(playerId => playerId !== corruptedPlayer.id);
+    // Find other players in the same room (excluding all corrupted players)
+    const corruptedPlayerIds = corruptedPlayers.map(cp => cp.id);
+    const otherPlayers = currentRoom.playersInRoom.filter(playerId => !corruptedPlayerIds.includes(playerId));
     
     if (otherPlayers.length === 0) {
         addToDungeonLog(`👹 No one to murder in this room...`, 'warning');
@@ -967,13 +1210,26 @@ function attemptMurder() {
     const success = Math.random() < 0.7; // 70% success rate for now
     
     if (success) {
-        addToDungeonLog(`🗡️ ${corruptedPlayer.name} successfully murders ${victim.name}!`, 'danger');
+        addToDungeonLog(`🗡️ ${game.playerCharacter.name} successfully murders ${victim.name}!`, 'danger');
         // Remove victim from game
         victim.isDead = true;
         currentRoom.playersInRoom = currentRoom.playersInRoom.filter(id => id !== victimId);
+        
+        // Add evidence of murder
+        if (typeof window.addEvidence === 'function') {
+            window.addEvidence('murder', `${game.playerCharacter.name} was seen near ${victim.name}'s body`, game.playerCharacter.id);
+        }
     } else {
-        addToDungeonLog(`🗡️ ${corruptedPlayer.name} attempts to murder ${victim.name} but fails!`, 'warning');
+        addToDungeonLog(`🗡️ ${game.playerCharacter.name} attempts to murder ${victim.name} but fails!`, 'warning');
+        
+        // Add evidence of failed murder attempt
+        if (typeof window.addEvidence === 'function') {
+            window.addEvidence('failed_murder', `${game.playerCharacter.name} was seen attacking ${victim.name} but failed`, game.playerCharacter.id);
+        }
     }
+    
+    // End night phase after corrupted player action
+    endNightPhase();
     
     // Update UI
     updateCoreGameplayInfo();
@@ -984,20 +1240,33 @@ function attemptMurder() {
 // ----------------------------------------
 function performAIActions() {
     const players = game.players || [];
+    const aiPlayers = players.filter(player => 
+        player.id !== game.playerCharacter.id && 
+        !player.isDead && 
+        (player.currentStamina !== undefined ? player.currentStamina : calculateStamina(player)) >= 1
+    );
     
-    players.forEach(player => {
-        // Skip human player and dead players
-        if (player.id === game.playerCharacter.id || player.isDead) return;
+    console.log(`🤖 AI Actions: ${aiPlayers.length} AI players with stamina`);
+    aiPlayers.forEach(player => {
+        const stamina = player.currentStamina !== undefined ? player.currentStamina : calculateStamina(player);
+        console.log(`🤖 ${player.name}: ${stamina} stamina`);
+    });
+    
+    // Execute AI actions with staggered delays
+    aiPlayers.forEach((player, index) => {
+        const delay = index * (aiActionDelay + Math.random() * 5000); // 5-10 seconds + random variation
         
-        // Skip if no stamina
-        const currentStamina = player.currentStamina || calculateStamina(player);
-        if (currentStamina <= 0) return;
-        
-        // AI decision making
-        const action = decideAIAction(player);
-        if (action) {
-            executeAIAction(player, action);
-        }
+        setTimeout(() => {
+            // Double-check conditions before executing
+            if (player.isDead || (player.currentStamina || calculateStamina(player)) < 1) return;
+            
+            console.log(`🤖 ${player.name} taking action...`);
+            const action = decideAIAction(player);
+            if (action) {
+                console.log(`🤖 ${player.name} decided to: ${action.type}`);
+                executeAIAction(player, action);
+            }
+        }, delay);
     });
 }
 
@@ -1005,7 +1274,8 @@ function performAIActions() {
 // Decide AI Action
 // ----------------------------------------
 function decideAIAction(player) {
-    const currentRoom = getCurrentRoom();
+    const currentRoomId = playerCurrentRoom[player.id];
+    const currentRoom = currentDungeon.getRoomById(currentRoomId);
     if (!currentRoom) return null;
     
     const actions = [];
@@ -1026,7 +1296,7 @@ function decideAIAction(player) {
     });
     
     // Search room option
-    const searchCost = calculateActionCost(10, player);
+    const searchCost = calculateActionCost(5, player);
     if (checkStamina(player, searchCost)) {
         actions.push({
             type: 'search',
@@ -1034,11 +1304,17 @@ function decideAIAction(player) {
         });
     }
     
+    // If no actions available but player has stamina, add a "do nothing" option
+    // This ensures AI players use up their stamina by doing something
+    if (actions.length === 0 && (player.currentStamina || calculateStamina(player)) > 0) {
+        actions.push({
+            type: 'wait',
+            cost: 1 // Use 1 stamina for waiting
+        });
+    }
+    
     // Rest option (always available)
-    actions.push({
-        type: 'rest',
-        cost: 0
-    });
+    // Rest functionality removed - AI cannot rest to recover stamina
     
     // Randomly choose an action
     if (actions.length === 0) return null;
@@ -1051,16 +1327,21 @@ function decideAIAction(player) {
 // Execute AI Action
 // ----------------------------------------
 function executeAIAction(player, action) {
+    console.log(`🤖 Executing AI action for ${player.name}: ${action.type} (cost: ${action.cost})`);
     switch (action.type) {
         case 'move':
+            console.log(`🤖 ${player.name} moving ${action.direction}`);
             executeAIMovement(player, action.direction, action.cost);
             break;
         case 'search':
+            console.log(`🤖 ${player.name} searching room`);
             executeAISearch(player, action.cost);
             break;
-        case 'rest':
-            executeAIRest(player);
+        case 'wait':
+            console.log(`🤖 ${player.name} waiting`);
+            executeAIWait(player, action.cost);
             break;
+        // Rest functionality removed
     }
 }
 
@@ -1088,12 +1369,37 @@ function executeAIMovement(player, direction, cost) {
     currentRoom.playersInRoom = currentRoom.playersInRoom.filter(id => id !== player.id);
     newRoom.playersInRoom.push(player.id);
     
-    // Mark room as explored
+    // Mark room as explored (only for human player)
     const roomId = `${newRoom.x},${newRoom.y}`;
-    exploredRooms.add(roomId);
+    if (player.id === game.playerCharacter.id) {
+        exploredRooms.add(roomId);
+    }
     
-    // Log AI movement
-    addToDungeonLog(`🤖 ${player.name} moves ${getDirectionName(direction)} to ${newRoom.name}`, 'info');
+    // Track action for other players to see
+    player.lastAction = `moved ${getDirectionName(direction)}`;
+    
+    // Log AI movement only if human player is in the same room
+    const humanPlayerRoom = game.playerCharacter ? playerCurrentRoom[game.playerCharacter.id] : null;
+    if (humanPlayerRoom === currentRoomId || humanPlayerRoom === newRoomId) {
+        addToDungeonLog(`🤖 ${player.name} moves ${getDirectionName(direction)} to ${newRoom.name}`, 'info');
+    }
+    
+    // Show movement to other players in the same room (both old and new room)
+    
+    // Show to players in the old room
+    if (humanPlayerRoom === currentRoomId) {
+        addToDungeonLog(`👀 You see ${player.name} heading ${getDirectionName(direction)}`, 'info');
+    }
+    
+    // Show to players in the new room
+    if (humanPlayerRoom === newRoomId) {
+        addToDungeonLog(`👀 You see ${player.name} entering from the ${getOppositeDirection(direction)}`, 'info');
+    }
+    
+    // Update room players display if human player is in the same room
+    if (game.playerCharacter && playerCurrentRoom[game.playerCharacter.id] === newRoomId) {
+        updateRoomPlayersDisplay();
+    }
 }
 
 // ----------------------------------------
@@ -1102,34 +1408,72 @@ function executeAIMovement(player, direction, cost) {
 function executeAISearch(player, cost) {
     useStamina(player, cost);
     
+    // Track action for other players to see
+    player.lastAction = 'searched the room';
+    
     // Simple search result
     const foundItems = Math.random() < 0.3; // 30% chance to find something
     
-    if (foundItems) {
-        const items = ['gold', 'potion', 'weapon'];
-        const item = items[Math.floor(Math.random() * items.length)];
-        addToDungeonLog(`🤖 ${player.name} found a ${item}!`, 'success');
-    } else {
-        addToDungeonLog(`🤖 ${player.name} searches the room but finds nothing.`, 'info');
+    // Show search results only if human player is in the same room
+    const currentRoomId = playerCurrentRoom[player.id];
+    const humanPlayerRoom = game.playerCharacter ? playerCurrentRoom[game.playerCharacter.id] : null;
+    
+    if (humanPlayerRoom === currentRoomId) {
+        if (foundItems) {
+            const items = ['gold', 'potion', 'weapon'];
+            const item = items[Math.floor(Math.random() * items.length)];
+            addToDungeonLog(`🤖 ${player.name} found a ${item}!`, 'success');
+        } else {
+            addToDungeonLog(`🤖 ${player.name} searches the room but finds nothing.`, 'info');
+        }
+    }
+    
+    // Show search action to other players in the same room
+    
+    if (humanPlayerRoom === currentRoomId) {
+        addToDungeonLog(`👀 You see ${player.name} searching around the room`, 'info');
+    }
+    
+    // Update room players display if human player is in the same room
+    if (game.playerCharacter && playerCurrentRoom[game.playerCharacter.id] === currentRoomId) {
+        updateRoomPlayersDisplay();
     }
 }
 
 // ----------------------------------------
-// Execute AI Rest
+// Execute AI Wait
 // ----------------------------------------
-function executeAIRest(player) {
-    const restAmount = 5;
-    player.currentStamina = Math.min(calculateStamina(player), (player.currentStamina || 0) + restAmount);
+function executeAIWait(player, cost) {
+    useStamina(player, cost);
     
-    addToDungeonLog(`🤖 ${player.name} rests and recovers ${restAmount} stamina.`, 'info');
+    // Track action for other players to see
+    player.lastAction = 'waited and rested';
+    
+    // Show wait action to other players in the same room
+    const currentRoomId = playerCurrentRoom[player.id];
+    const humanPlayerRoom = game.playerCharacter ? playerCurrentRoom[game.playerCharacter.id] : null;
+    
+    if (humanPlayerRoom === currentRoomId) {
+        addToDungeonLog(`🤖 ${player.name} waits and rests for a moment`, 'info');
+    }
+    
+    // Update room players display if human player is in the same room
+    if (game.playerCharacter && playerCurrentRoom[game.playerCharacter.id] === currentRoomId) {
+        updateRoomPlayersDisplay();
+    }
 }
+
+// ----------------------------------------
+// Execute AI Rest - REMOVED
+// ----------------------------------------
+// Rest functionality has been removed - AI cannot recover stamina by resting
 
 // ----------------------------------------
 // Search Room
 // ----------------------------------------
 function searchRoom() {
     const player = game.playerCharacter;
-    const searchCost = calculateActionCost(10, player);
+    const searchCost = calculateActionCost(5, player);
     
     if (!checkStamina(player, searchCost)) {
         addToDungeonLog(`❌ Not enough stamina to search! Need ${searchCost} stamina.`, 'warning');
@@ -1138,6 +1482,25 @@ function searchRoom() {
     
     // Use stamina
     useStamina(player, searchCost);
+    
+    // Track action for other players to see
+    player.lastAction = 'searched the room';
+    
+    // If corrupted player is searching, end night phase
+    const isPlayerCorrupted = corruptedPlayers.some(cp => cp.id === player.id);
+    if (isPlayerCorrupted) {
+        endNightPhase();
+        return;
+    }
+    
+    // Show search action to other players in the same room
+    const currentRoomId = playerCurrentRoom[player.id];
+    const currentRoom = currentDungeon.getRoomById(currentRoomId);
+    const otherPlayersInRoom = currentRoom ? currentRoom.playersInRoom.filter(id => id !== player.id) : [];
+    
+    if (otherPlayersInRoom.length > 0) {
+        addToDungeonLog(`👀 Other players see you searching around the room`, 'info');
+    }
     
     // Check if all players are out of stamina after this action
     if (checkAllPlayersAsleep()) {
@@ -1158,24 +1521,9 @@ function searchRoom() {
 }
 
 // ----------------------------------------
-// Rest
+// Rest - REMOVED
 // ----------------------------------------
-function rest() {
-    const player = game.playerCharacter;
-    const restAmount = 5;
-    
-    player.currentStamina = Math.min(calculateStamina(player), (player.currentStamina || 0) + restAmount);
-    
-    addToDungeonLog(`😴 You rest and recover ${restAmount} stamina.`, 'info');
-    
-    // Update stamina display
-    updateStaminaDisplay(player);
-    
-    // Check if all players are out of stamina after this action
-    if (checkAllPlayersAsleep()) {
-        startNightPhase();
-    }
-}
+// Rest functionality has been removed - players cannot recover stamina by resting
 
 // ----------------------------------------
 // Start AI Timer
@@ -1186,13 +1534,18 @@ function startAITimer() {
     }
     
     aiTimer = setInterval(() => {
+        console.log(`🤖 AI Timer tick - Night phase: ${nightPhase}`);
         if (!nightPhase) {
+            console.log(`🤖 Calling performAIActions...`);
             performAIActions();
             
             // Check if all players are out of stamina
             if (checkAllPlayersAsleep()) {
+                console.log(`🤖 All players asleep, starting night phase...`);
                 startNightPhase();
             }
+        } else {
+            console.log(`🤖 Night phase active, skipping AI actions`);
         }
     }, aiInterval);
 }
@@ -1781,6 +2134,9 @@ function useItem(item) {
         player.inventory.splice(itemIndex, 1);
     }
     
+    // Track action for other players to see
+    player.lastAction = `used ${item.name}`;
+    
     // Handle different item types
     switch(item.type) {
         case 'potion':
@@ -1807,6 +2163,12 @@ function useItem(item) {
             addToDungeonLog(`Du använder ${item.name}!`, 'info');
     }
     
+    // Update items display
+    updatePlayerItemsDisplay();
+    
+    // Update room players display
+    updateRoomPlayersDisplay();
+    
     // Refresh actions
     const room = currentDungeon.getRoomById(playerCurrentRoom[player.id]);
     if (room) {
@@ -1822,6 +2184,98 @@ function getPlayersInRoom(roomId) {
     return room ? room.playersInRoom : [];
 }
 
+// ----------------------------------------
+// Leave Dungeon Game
+// ----------------------------------------
+function leaveDungeonGame() {
+    if (confirm('Are you sure you want to leave the dungeon? Any progress will be lost.')) {
+        // Stop any active timers
+        if (aiTimer) {
+            clearInterval(aiTimer);
+            aiTimer = null;
+        }
+        if (nightTimer) {
+            clearTimeout(nightTimer);
+            nightTimer = null;
+        }
+        if (gameTimer) {
+            clearInterval(gameTimer);
+            gameTimer = null;
+        }
+        
+        // Reset game state
+        nightPhase = false;
+        allPlayersAsleep = false;
+        
+        // Return to menu
+        if (typeof showMenuScreen === 'function') {
+            showMenuScreen();
+        } else {
+            // Fallback - hide dungeon screen and show menu
+            document.getElementById('dungeon-exploration-screen').style.display = 'none';
+            document.getElementById('menu-screen').style.display = 'block';
+        }
+    }
+}
+
+// ----------------------------------------
+// Generate Dynamic Event Filters
+// ----------------------------------------
+function generateEventFilters() {
+    const filterContainer = document.getElementById('event-filters');
+    if (!filterContainer) return;
+    
+    // Clear existing filters
+    filterContainer.innerHTML = '';
+    
+    // Add "All Players" filter
+    const allButton = document.createElement('button');
+    allButton.className = 'filter-btn active';
+    allButton.textContent = 'All Players';
+    allButton.onclick = () => filterEvents('all');
+    filterContainer.appendChild(allButton);
+    
+    // Add individual player filters
+    const players = game.players || [];
+    players.forEach(player => {
+        const playerButton = document.createElement('button');
+        playerButton.className = 'filter-btn';
+        playerButton.textContent = player.name;
+        playerButton.onclick = () => filterEvents(player.name);
+        filterContainer.appendChild(playerButton);
+    });
+}
+
+// ----------------------------------------
+// Event Filtering
+// ----------------------------------------
+function filterEvents(filterType) {
+    const eventLog = document.getElementById('dungeon-event-log');
+    if (!eventLog) return;
+    
+    const events = eventLog.querySelectorAll('.event-entry');
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    
+    // Update active filter button
+    filterButtons.forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    // Show/hide events based on filter
+    events.forEach(event => {
+        const eventText = event.textContent.toLowerCase();
+        let shouldShow = false;
+        
+        if (filterType === 'all') {
+            shouldShow = true;
+        } else {
+            // Filter by specific player name
+            shouldShow = eventText.includes(filterType.toLowerCase());
+        }
+        
+        event.style.display = shouldShow ? 'block' : 'none';
+    });
+}
+
 // ============================================
 // EXPORT FUNCTIONS TO WINDOW
 // ============================================
@@ -1832,8 +2286,15 @@ window.startDungeonExploration = startDungeonExploration;
     window.takeKey = takeKey;
     window.takeTreasure = takeTreasure;
     window.searchRoom = searchRoom;
-    window.rest = rest;
+    // window.rest = rest; // Rest functionality removed
     window.toggleDungeonView = toggleDungeonView;
     window.searchObject = searchObject;
     window.showAllActions = showAllActions;
     window.useItem = useItem;
+    window.updatePlayerItemsDisplay = updatePlayerItemsDisplay;
+    window.updateRoomPlayersDisplay = updateRoomPlayersDisplay;
+    window.leaveDungeonGame = leaveDungeonGame;
+    window.filterEvents = filterEvents;
+    window.generateEventFilters = generateEventFilters;
+    window.startGameTimer = startGameTimer;
+    window.stopGameTimer = stopGameTimer;

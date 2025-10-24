@@ -48,204 +48,89 @@ class GameState {
         this.timeOfDay = "day"; // "day" or "night"
         this.dayNightVotes = {}; // Track votes for day/night cycle
         this.currentDay = 1;
+        
+        // Voting system
+        this.votingPhase = false;
+        this.votes = {}; // playerId -> targetPlayerId
+        this.votingTimer = null;
+        this.votingDuration = 30000; // 30 seconds
+        
+        // Win conditions
+        this.gameEnded = false;
+        this.winner = null; // "innocent" or "corrupted"
+        this.winReason = null;
+        
+        // Social deduction
+        this.accusations = []; // Array of accusation objects
+        this.evidence = []; // Array of evidence objects
+        this.suspiciousActions = []; // Track suspicious player actions
     }
 
     initializeLootPool() {
         return [
-            new LootItem("Ancient Orb", "Reveal a player's role", "rare"),
-            new LootItem("Golden Chalice", "Worth 100 gold", "common"),
-            new LootItem("Shadow Dagger", "Kill in darkness", "rare"),
-            new LootItem("Healing Elixir", "Survive one attack", "uncommon"),
-            new LootItem("Cursed Amulet", "Double loot, reveal role", "legendary"),
-            new LootItem("Silver Coins", "Worth 20 gold", "common"),
-            new LootItem("Magic Scroll", "Reveal event info", "uncommon"),
-            new LootItem("Dragon Gem", "Worth 500 gold", "legendary"),
-            new LootItem("Rusty Key", "Unknown purpose", "common"),
-            new LootItem("Blood Stone", "Mark a target", "rare")
+            new LootItem("Healing Elixir", "heal", "common"),
+            new LootItem("Strength Potion", "strength", "common"),
+            new LootItem("Speed Elixir", "speed", "common"),
+            new LootItem("Magic Scroll", "magic", "rare"),
+            new LootItem("Golden Key", "key", "rare"),
+            new LootItem("Ancient Artifact", "artifact", "legendary")
         ];
     }
 }
 
 // ============================================
-// GLOBAL GAME STATE
+// GLOBAL VARIABLES
 // ============================================
 
-let game = new GameState();
-let gameTimers = {
-    discussion: null,
-    voting: null,
-    exploration: null
-};
+let game = null;
+let gameTimers = {};
 
 // ============================================
-// UTILITY FUNCTIONS
+// UI FUNCTIONS
 // ============================================
-
-function randomInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function randomElement(array) {
-    return array[Math.floor(Math.random() * array.length)];
-}
-
-function shuffleArray(array) {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-}
 
 function addToLog(message, type = "info") {
-    const entry = { message, type, timestamp: Date.now() };
-    game.eventLog.push(entry);
-    updateEventLog();
+    const logElement = document.getElementById('event-log');
+    if (logElement) {
+        const messageElement = document.createElement('div');
+        messageElement.className = `log-message ${type}`;
+        messageElement.textContent = message;
+        logElement.appendChild(messageElement);
+        logElement.scrollTop = logElement.scrollHeight;
+    }
 }
 
 function clearLog() {
-    game.eventLog = [];
-    updateEventLog();
+    const logElement = document.getElementById('event-log');
+    if (logElement) {
+        logElement.innerHTML = '';
+    }
 }
-
-// ============================================
-// UI UPDATE FUNCTIONS
-// ============================================
 
 function updatePhaseTitle(text) {
-    document.getElementById("phase-title").textContent = text;
-}
-
-function updateEventLog() {
-    const logElement = document.getElementById("event-log");
-    logElement.innerHTML = "";
-    
-    game.eventLog.forEach(entry => {
-        const div = document.createElement("div");
-        div.className = `event-entry event-${entry.type}`;
-        div.textContent = entry.message;
-        logElement.appendChild(div);
-    });
-    
-    // Auto-scroll to bottom
-    logElement.scrollTop = logElement.scrollHeight;
-}
-
-function updatePlayersList() {
-    const listElement = document.getElementById("players-list");
-    listElement.innerHTML = "";
-    
-    game.players.forEach(player => {
-        const card = document.createElement("div");
-        card.className = "player-card";
-        
-        if (!player.alive) card.classList.add("dead");
-        if (player.escaped) card.classList.add("escaped");
-        if (player.isPlayer) card.classList.add("you");
-        
-        let statusText = "✅ Alive";
-        if (!player.alive) statusText = "💀 Dead";
-        if (player.escaped) statusText = "🚪 Escaped";
-        
-        let lootText = player.inventory.length > 0 
-            ? `📦 ${player.inventory.length} items` 
-            : "";
-        
-        let roleText = "";
-        // Only show role if game is over or if it's the player character
-        if (game.phase === "result" || player.isPlayer) {
-            const roleEmoji = player.role === "Corrupted" ? "😈" : "😇";
-            roleText = `<div class="player-role">${roleEmoji} ${player.role}</div>`;
-        }
-        
-        card.innerHTML = `
-            <div class="player-name">${player.name} ${player.isPlayer ? "(You)" : ""}</div>
-            <div class="player-status">${statusText}</div>
-            ${lootText ? `<div class="player-loot">${lootText}</div>` : ""}
-            ${roleText}
-        `;
-        
-        listElement.appendChild(card);
-    });
-}
-
-function updateRoundInfo() {
-    document.getElementById("round-number").textContent = game.round;
-}
-
-function updateInventory() {
-    const inventoryElement = document.getElementById("inventory-items");
-    
-    if (!game.playerCharacter) {
-        inventoryElement.textContent = "No player selected...";
-        return;
+    const titleElement = document.getElementById('phase-title');
+    if (titleElement) {
+        titleElement.textContent = text;
     }
-    
-    if (game.playerCharacter.stash.length === 0) {
-        inventoryElement.textContent = "No loot yet...";
-        return;
-    }
-    
-    inventoryElement.innerHTML = "";
-    game.playerCharacter.stash.forEach(item => {
-        const itemDiv = document.createElement("div");
-        itemDiv.className = "loot-item";
-        itemDiv.innerHTML = `
-            ${item.name} (${item.rarity})
-            <span class="tooltip">
-                ${item.effect}
-                <span class="tooltip-rarity">${item.rarity.toUpperCase()}</span>
-            </span>
-        `;
-        inventoryElement.appendChild(itemDiv);
-    });
 }
 
 function showMainButton(text, onClick) {
-    const btn = document.getElementById("main-action-btn");
-    btn.textContent = text;
-    btn.style.display = "inline-block";
-    btn.onclick = onClick;
-    btn.disabled = false;
-}
-
-function hideMainButton() {
-    document.getElementById("main-action-btn").style.display = "none";
+    const buttonContainer = document.getElementById('action-buttons');
+    if (buttonContainer) {
+        buttonContainer.innerHTML = '';
+        const button = document.createElement('button');
+        button.textContent = text;
+        button.className = 'action-btn';
+        button.onclick = onClick;
+        buttonContainer.appendChild(button);
+    }
 }
 
 function clearActionButtons() {
-    document.getElementById("vote-buttons").innerHTML = "";
-    document.getElementById("extraction-buttons").innerHTML = "";
-    document.getElementById("darkness-buttons").innerHTML = "";
-    hideMainButton();
-    
-    // Hide chat container when not in dungeon
-    const chatContainer = document.getElementById('chat-container');
-    if (chatContainer) {
-        chatContainer.style.display = 'none';
+    const buttonContainer = document.getElementById('action-buttons');
+    if (buttonContainer) {
+        buttonContainer.innerHTML = '';
     }
-    
-    // Clear any active timers
-    if (gameTimers.discussion) {
-        clearInterval(gameTimers.discussion);
-        gameTimers.discussion = null;
-    }
-    if (gameTimers.voting) {
-        clearInterval(gameTimers.voting);
-        gameTimers.voting = null;
-    }
-    if (gameTimers.exploration) {
-        clearInterval(gameTimers.exploration);
-        gameTimers.exploration = null;
-    }
-    
-    // Remove timer elements
-    const timers = ['discussion-timer', 'voting-timer', 'exploration-timer', 'day-night-timer'];
-    timers.forEach(id => {
-        const element = document.getElementById(id);
-        if (element) element.remove();
-    });
 }
 
 // ============================================
@@ -266,73 +151,46 @@ async function startGame() {
         endGameBtn.style.display = 'inline-block';
     }
     
+    // Create human player first
+    game.playerCharacter = new Player("player", "You", true);
+    
     // Load equipped items from stash
-    let startingItems = [];
-    if (currentUser && typeof supabase !== 'undefined') {
-        try {
-            const { data: equipped } = await supabase
-                .from('player_items')
-                .select('*, items(*)')
-                .eq('user_id', currentUser.id)
-                .eq('is_equipped', true);
+    if (window.loadEquippedItems) {
+        const equippedItems = await window.loadEquippedItems();
+        if (equippedItems && equippedItems.length > 0) {
+            const startingItems = equippedItems.map(item => new LootItem(item.name, item.effect, item.rarity));
+            game.playerCharacter.inventory = [...startingItems];
             
-            if (equipped && equipped.length > 0) {
-                startingItems = equipped.map(item => new LootItem(
-                    item.items.name,
-                    item.items.effect,
-                    item.items.rarity
-                ));
-                addToLog(`🎒 You bring ${startingItems.length} items from your stash!`, 'info');
+            // Update player items display if function exists
+            if (typeof window.updatePlayerItemsDisplay === 'function') {
+                window.updatePlayerItemsDisplay();
             }
-        } catch (error) {
-            console.error('Error loading equipped items:', error);
+            
+                addToLog(`🎒 You bring ${startingItems.length} items from your stash!`, 'info');
+        } else {
+            addToLog(`🎒 You start with no items from your stash.`, 'info');
         }
     }
     
-    // Create players
-    const names = ["Ari", "Bjorn", "Cira", "Dusk", "Elara", "Finn", "Greta", "Hector"];
-    const numPlayers = randomInt(5, 8);
+    // Create AI players
+    const aiNames = ["Aria", "Bjorn", "Cora", "Dante", "Elena", "Finn", "Greta", "Hugo"];
+    const numPlayers = 4; // 1 human + 3 AI
     
-    for (let i = 0; i < numPlayers; i++) {
-        const isPlayer = (i === 0); // First player is the human
-        game.players.push(new Player(i + 1, names[i], isPlayer));
+    for (let i = 0; i < numPlayers - 1; i++) {
+        const aiPlayer = new Player(`ai_${i}`, aiNames[i], false);
+        aiPlayer.role = Math.random() < 0.3 ? "Corrupted" : "Innocent";
+        game.players.push(aiPlayer);
     }
     
-    game.playerCharacter = game.players[0];
-    
-    // Give player their equipped items
-    if (startingItems.length > 0) {
-        game.playerCharacter.inventory.push(...startingItems);
-    }
-    
-    // Assign roles (25-30% corrupted)
-    const numCorrupted = Math.max(1, Math.floor(numPlayers * 0.3));
-    const shuffled = shuffleArray(game.players);
-    
-    for (let i = 0; i < numCorrupted; i++) {
-        shuffled[i].role = "Corrupted";
-    }
-    
-    game.players.forEach(player => {
-        if (!player.role) player.role = "Innocent";
-    });
-    
-    // Ensure player character is not corrupted on first game (tutorial)
-    if (game.playerCharacter.role === "Corrupted") {
-        // Find an innocent to swap with
-        const innocentPlayer = game.players.find(p => p.role === "Innocent" && !p.isPlayer);
-        if (innocentPlayer) {
-            innocentPlayer.role = "Corrupted";
-            game.playerCharacter.role = "Innocent";
+    // Set human player role
+    if (game.playerCharacter) {
+        game.playerCharacter.role = "Innocent"; // Always start as innocent for single player
             addToLog("🎓 As a new player, you start as Innocent to learn the game!", "info");
-        }
+        game.players.push(game.playerCharacter);
     }
     
+    // Start dungeon exploration
     updatePhaseTitle("📜 Start Phase - Dungeon Awakens");
-    updateRoundInfo();
-    updatePlayersList();
-    updateInventory();
-    
     addToLog("🏰 You descend into the dungeon...", "info");
     addToLog(`${numPlayers} brave adventurers dare to enter the darkness.`, "info");
     addToLog(`You are ${game.playerCharacter.name}.`, "success");
@@ -345,777 +203,556 @@ async function startGame() {
         addToLog("⚔️ Find the corrupted and survive to escape with your loot.", "success");
     }
     
-    setTimeout(() => {
-        // Start the new grid dungeon system
-        console.log('Attempting to start dungeon exploration...');
-        if (typeof startDungeonExploration === 'function') {
-            console.log('startDungeonExploration function found, calling it...');
-            startDungeonExploration();
-        } else {
-            console.log('startDungeonExploration function not found, falling back to old system...');
-            showMainButton("Börja äventyret", dayNightVotingPhase);
-        }
-    }, 1000);
-}
-
-// ----------------------------------------
-// EXPLORATION PHASE
-// ----------------------------------------
-function explorationPhase() {
-    clearActionButtons();
-    game.phase = "exploration";
-    
-    updatePhaseTitle("🔦 Exploration Phase - Seeking Treasures");
-    addToLog("─────────────────────────────", "info");
-    addToLog("🔦 You spread out through the dungeon searching for treasures...", "info");
-    addToLog("⏰ You have 30 seconds to explore...", "info");
-    
-    updatePlayersList();
-    
-    // Start exploration timer
-    let timeLeft = 30;
-    const timerElement = document.createElement('div');
-    timerElement.id = 'exploration-timer';
-    timerElement.style.cssText = 'text-align: center; font-size: 1.2rem; color: #ffd700; margin: 10px 0; font-weight: bold;';
-    document.getElementById('event-log').appendChild(timerElement);
-    
-    gameTimers.exploration = setInterval(() => {
-        timeLeft--;
-        timerElement.textContent = `⏰ Exploration Time: ${timeLeft}s`;
-        
-        if (timeLeft <= 0) {
-            clearInterval(gameTimers.exploration);
-            timerElement.remove();
-            showMainButton("Rösta om nästa fas...", dayNightVotingPhase);
-        }
-    }, 1000);
-    
-    // Simulate exploration events for each player
-    const alivePlayers = game.players.filter(p => p.alive);
-    
-    alivePlayers.forEach((player, index) => {
-        setTimeout(() => {
-            exploreForPlayer(player);
-        }, 500 * (index + 1));
-    });
-}
-
-function exploreForPlayer(player) {
-    const events = [
-        "hears mysterious whispers from the walls.",
-        "finds bloody footsteps on the floor.",
-        "feels a cold wind through the corridor.",
-        "sees shadows moving in the darkness.",
-        "finds ancient inscriptions on the wall."
-    ];
-    
-    const lootChance = 0.35; // 35% chance
-    
-    if (Math.random() < lootChance) {
-        const loot = randomElement(game.lootPool);
-        const newLoot = new LootItem(loot.name, loot.effect, loot.rarity);
-        player.inventory.push(newLoot);
-        
-        const emoji = loot.rarity === "legendary" ? "✨" : 
-                     loot.rarity === "rare" ? "💎" : 
-                     loot.rarity === "uncommon" ? "📿" : "💰";
-        
-        addToLog(`${emoji} ${player.name} finds a ${loot.name}!`, "success");
-    } else {
-        const event = randomElement(events);
-        addToLog(`👁️ ${player.name} ${event}`, "info");
-    }
-    
-    updatePlayersList();
-}
-
-// ----------------------------------------
-// DAY/NIGHT VOTING PHASE
-// ----------------------------------------
-function dayNightVotingPhase() {
-    clearActionButtons();
-    game.phase = "day_night_voting";
-    
-    updatePhaseTitle(`🗳️ Runda ${game.round} - Röstning om tid på dygnet`);
-    addToLog("─────────────────────────────", "info");
-    addToLog(`🌅 Det är för närvarande ${game.timeOfDay === "day" ? "dag" : "natt"} (Dag ${game.currentDay})`, "info");
-    addToLog("🗳️ Rösta om vad som ska hända härnäst:", "info");
-    addToLog("• 🌅 Fortsätt med dag - Utforska och samla skatter", "info");
-    addToLog("• 🌙 Byt till natt - Mörkerfasen börjar", "info");
-    
-    // Reset votes
-    game.dayNightVotes = {};
-    
-    // Create voting buttons
-    const voteContainer = document.getElementById("vote-buttons");
-    voteContainer.innerHTML = "<p style='color: #d4af37; margin-bottom: 10px;'>Vad vill du rösta för?</p>";
-    
-    const dayBtn = document.createElement("button");
-    dayBtn.className = "vote-btn";
-    dayBtn.textContent = "🌅 Fortsätt Dag";
-    dayBtn.onclick = () => castDayNightVote("day");
-    voteContainer.appendChild(dayBtn);
-    
-    const nightBtn = document.createElement("button");
-    nightBtn.className = "vote-btn";
-    nightBtn.textContent = "🌙 Byt till Natt";
-    nightBtn.onclick = () => castDayNightVote("night");
-    voteContainer.appendChild(nightBtn);
-    
-    // Start voting timer
-    let votingTime = 30;
-    const timerElement = document.createElement('div');
-    timerElement.id = 'day-night-timer';
-    timerElement.style.cssText = 'text-align: center; font-size: 1.2rem; color: #ffd700; margin: 10px 0; font-weight: bold;';
-    document.getElementById('event-log').appendChild(timerElement);
-    
-    gameTimers.voting = setInterval(() => {
-        votingTime--;
-        timerElement.textContent = `⏰ Röstningstid: ${votingTime}s`;
-        
-        if (votingTime <= 0) {
-            clearInterval(gameTimers.voting);
-            timerElement.remove();
-            // Auto-vote for day if no choice made
-            if (!game.dayNightVotes[game.playerCharacter.id]) {
-                addToLog("⏰ Tiden är slut! Du röstar automatiskt för dag.", "warning");
-                castDayNightVote("day");
-            }
-        }
-    }, 1000);
-}
-
-function castDayNightVote(vote) {
-    if (!game.playerCharacter.alive) {
-        addToLog("☠️ Du är död och kan inte rösta.", "warning");
-        return;
-    }
-    
-    // Clear voting timer
-    if (gameTimers.voting) {
-        clearInterval(gameTimers.voting);
-        const timerElement = document.getElementById('day-night-timer');
-        if (timerElement) timerElement.remove();
-    }
-    
-    game.dayNightVotes[game.playerCharacter.id] = vote;
-    
-    const voteText = vote === "day" ? "dag" : "natt";
-    addToLog(`🗳️ Du röstar för ${voteText}.`, "info");
-    
-    clearActionButtons();
-    
-    // Simulate other players voting
-    setTimeout(() => {
-        simulateDayNightVoting();
-    }, 1000);
-}
-
-function simulateDayNightVoting() {
-    addToLog("🤔 De andra äventyrare röstar...", "info");
-    
-    const alivePlayers = game.players.filter(p => p.alive);
-    
-    // AI players vote
-    alivePlayers.forEach(player => {
-        if (player.isPlayer || game.dayNightVotes[player.id]) return;
-        
-        // AI voting logic - corrupted prefer night, innocents prefer day
-        const vote = player.role === "Corrupted" ? 
-            (Math.random() < 0.7 ? "night" : "day") : 
-            (Math.random() < 0.6 ? "day" : "night");
-        
-        game.dayNightVotes[player.id] = vote;
-    });
-    
-    // Count votes
-    const dayVotes = Object.values(game.dayNightVotes).filter(v => v === "day").length;
-    const nightVotes = Object.values(game.dayNightVotes).filter(v => v === "night").length;
-    
-    setTimeout(() => {
-        addToLog(`📊 Röstresultat: ${dayVotes} för dag, ${nightVotes} för natt`, "info");
-        
-        if (nightVotes > dayVotes) {
-            game.timeOfDay = "night";
-            addToLog("🌙 Majoriteten röstar för natt! Mörkret faller...", "warning");
-            setTimeout(() => {
-                darknessPhase();
-            }, 2000);
-        } else {
-            game.timeOfDay = "day";
-            addToLog("🌅 Majoriteten röstar för dag! Fortsätter med utforskning...", "success");
-            setTimeout(() => {
-                explorationPhase();
-            }, 2000);
-        }
-    }, 2000);
-}
-
-// ----------------------------------------
-// DARKNESS PHASE
-// ----------------------------------------
-function darknessPhase() {
-    clearActionButtons();
-    game.phase = "darkness";
-    
-    updatePhaseTitle("🌑 Mörkerfas - Skräcken slår till");
-    addToLog("─────────────────────────────", "info");
-    addToLog("🌑 Mörkret faller över er... facklor slocknar en efter en.", "warning");
-    addToLog("💀 Något rör sig i mörkret...", "warning");
-    
-    // Check if player is corrupted and alive
-    if (game.playerCharacter.alive && game.playerCharacter.role === "Corrupted") {
-        setTimeout(() => {
-            offerCorruptedChoice();
-        }, 1500);
-    } else {
-        setTimeout(() => {
-            performDarknessActions();
-        }, 1500);
+    // Start dungeon exploration
+    if (typeof window.startDungeonExploration === 'function') {
+        window.startDungeonExploration();
     }
 }
 
-function offerCorruptedChoice() {
-    const innocentPlayers = game.players.filter(p => p.alive && p.role === "Innocent");
-    
-    if (innocentPlayers.length === 0) {
-        addToLog("👁️ No innocents to attack...", "info");
-        setTimeout(() => {
-            performDarknessActions();
-        }, 1500);
-        return;
-    }
-    
-    addToLog("🔪 You are corrupted. Choose your victim...", "warning");
-    
-    const darknessContainer = document.getElementById("darkness-buttons");
-    darknessContainer.innerHTML = "<p style='color: #d4af37; margin-bottom: 10px;'>Choose who to attack:</p>";
-    
-    innocentPlayers.forEach(player => {
-        const btn = document.createElement("button");
-        btn.className = "attack-btn";
-        btn.textContent = `⚔️ Attack ${player.name}`;
-        btn.onclick = () => attackPlayer(player);
-        darknessContainer.appendChild(btn);
-    });
-    
-    // Add option to skip
-    const skipBtn = document.createElement("button");
-    skipBtn.className = "attack-btn";
-    skipBtn.textContent = "Skip Attack";
-    skipBtn.onclick = () => attackPlayer(null);
-    darknessContainer.appendChild(skipBtn);
-}
+// ============================================
+// VOTING SYSTEM
+// ============================================
 
-function attackPlayer(target) {
-    clearActionButtons();
-    
-    if (target) {
-        // Check if target has protection
-        const hasProtection = target.inventory.some(item => item.name === "Healing Elixir");
-        
-        if (hasProtection) {
-            const elixirIndex = target.inventory.findIndex(item => item.name === "Healing Elixir");
-            target.inventory.splice(elixirIndex, 1);
-            addToLog(`⚔️ You attack ${target.name}, but they survive using a Healing Elixir!`, "warning");
-        } else {
-            target.alive = false;
-            addToLog(`💀 You killed ${target.name} in the darkness!`, "warning");
-            
-            // Drop loot
-            if (target.inventory.length > 0) {
-                addToLog(`🎒 Their loot remains on the ground...`, "info");
-            }
-        }
-        
-        updatePlayersList();
-    } else {
-        addToLog("🤔 You choose not to attack this round.", "info");
-    }
-    
-    setTimeout(() => {
-        performDarknessActions();
-    }, 2000);
-}
-
-function performDarknessActions() {
-    const corruptedPlayers = game.players.filter(p => p.alive && p.role === "Corrupted" && !p.isPlayer);
-    const innocentPlayers = game.players.filter(p => p.alive && p.role === "Innocent");
-    
-    if (corruptedPlayers.length === 0 || innocentPlayers.length === 0) {
-        addToLog("👁️ Nothing happens in the darkness tonight...", "info");
-        setTimeout(() => {
-            showMainButton("Morning Comes", discussionPhase);
-        }, 1500);
-        return;
-    }
-    
-    // Other corrupted NPCs have a chance to attack
-    let attackHappened = false;
-    
-    corruptedPlayers.forEach((corrupted, index) => {
-        setTimeout(() => {
-            const attackChance = 0.5; // 50% chance to attack
-            
-            if (Math.random() < attackChance && innocentPlayers.some(p => p.alive)) {
-                const aliveInnocents = innocentPlayers.filter(p => p.alive);
-                const target = randomElement(aliveInnocents);
-                
-                // Check if target has protection
-                const hasProtection = target.inventory.some(item => item.name === "Healing Elixir");
-                
-                if (hasProtection) {
-                    const elixirIndex = target.inventory.findIndex(item => item.name === "Healing Elixir");
-                    target.inventory.splice(elixirIndex, 1);
-                    addToLog(`⚔️ An attack occurs! But ${target.name} survives thanks to a Healing Elixir!`, "warning");
-                } else {
-                    target.alive = false;
-                    attackHappened = true;
-                    
-                    // Drop loot
-                    const locations = ["the west corridor", "the north chamber", "the cellar", "the tower", "the altar"];
-                    if (target.inventory.length > 0) {
-                        addToLog(`💀 ${target.name} is found dead in ${randomElement(locations)}.`, "warning");
-                        addToLog(`🎒 Their loot remains at the scene...`, "info");
-                    } else {
-                        addToLog(`💀 ${target.name} is found dead in ${randomElement(locations)}.`, "warning");
-                    }
-                }
-                
-                updatePlayersList();
-            }
-        }, 1000 * index);
-    });
-    
-    setTimeout(() => {
-        if (!attackHappened) {
-            addToLog("🕯️ You hear screams in the distance, but everyone in the group is alive...", "info");
-        }
-        
-        setTimeout(() => {
-            showMainButton("Samla för diskussion", discussionPhase);
-        }, 1500);
-    }, 1000 * (corruptedPlayers.length + 1));
-}
-
-// ----------------------------------------
-// DISCUSSION PHASE
-// ----------------------------------------
-function discussionPhase() {
-    clearActionButtons();
-    game.phase = "discussion";
-    
-    const alivePlayers = game.players.filter(p => p.alive);
-    
-    if (alivePlayers.length <= 1) {
-        resultPhase();
-        return;
-    }
-    
-    updatePhaseTitle("🗣️ Discussion Phase - Who Lies?");
-    addToLog("─────────────────────────────", "info");
-    addToLog("🗣️ You gather to discuss what happened...", "info");
-    addToLog("🔍 Someone here is corrupted. Discuss and vote to eliminate a suspect.", "warning");
-    addToLog("⏰ You have 60 seconds to discuss before voting begins...", "info");
-    
-    updatePlayersList();
-    
-    // Start discussion timer
-    let discussionTime = 60;
-    const timerElement = document.createElement('div');
-    timerElement.id = 'discussion-timer';
-    timerElement.style.cssText = 'text-align: center; font-size: 1.2rem; color: #ffd700; margin: 10px 0; font-weight: bold;';
-    document.getElementById('event-log').appendChild(timerElement);
-    
-    gameTimers.discussion = setInterval(() => {
-        discussionTime--;
-        timerElement.textContent = `⏰ Discussion Time: ${discussionTime}s`;
-        
-        if (discussionTime <= 0) {
-            clearInterval(gameTimers.discussion);
-            timerElement.remove();
-            startVotingPhase();
-        }
-    }, 1000);
-    
-    // Add discussion tips
-    addToLog("💡 Discussion Tips:", "info");
-    addToLog("• Share what you saw during exploration", "info");
-    addToLog("• Look for suspicious behavior", "info");
-    addToLog("• Consider who might be lying", "info");
-    addToLog("• Remember: Corrupted players will try to mislead you", "info");
-}
-
-// ----------------------------------------
-// VOTING PHASE
-// ----------------------------------------
 function startVotingPhase() {
-    clearActionButtons();
-    game.phase = "voting";
+    if (game.votingPhase || game.gameEnded) return;
     
-    updatePhaseTitle("🗳️ Voting Phase - Choose Wisely");
-    addToLog("─────────────────────────────", "info");
-    addToLog("🗳️ Discussion time is over! Now vote to eliminate a suspect.", "warning");
-    addToLog("⏰ You have 30 seconds to vote...", "info");
+    game.votingPhase = true;
+    game.votes = {};
     
-    const alivePlayers = game.players.filter(p => p.alive);
+    addToLog('🗳️ Voting Phase Begins!', 'info');
+    addToLog('Discuss and vote for who you think is corrupted...', 'info');
+    addToLog('You have 30 seconds to vote!', 'warning');
     
-    // Create vote buttons
-    const voteContainer = document.getElementById("vote-buttons");
-    voteContainer.innerHTML = "<p style='color: #d4af37; margin-bottom: 10px;'>Vote for who to eliminate:</p>";
-    
-    alivePlayers.forEach(player => {
-        if (player.id === game.playerCharacter.id && game.playerCharacter.alive) {
-            // Can't vote for yourself
-            return;
-        }
-        
-        const btn = document.createElement("button");
-        btn.className = "vote-btn";
-        btn.textContent = `Vote ${player.name}`;
-        btn.onclick = () => castVote(player);
-        voteContainer.appendChild(btn);
-    });
-    
-    // Add skip vote option
-    const skipBtn = document.createElement("button");
-    skipBtn.className = "vote-btn";
-    skipBtn.textContent = "Skip Vote";
-    skipBtn.onclick = () => castVote(null);
-    voteContainer.appendChild(skipBtn);
+    // Show voting interface
+    showVotingInterface();
     
     // Start voting timer
-    let votingTime = 30;
-    const timerElement = document.createElement('div');
-    timerElement.id = 'voting-timer';
-    timerElement.style.cssText = 'text-align: center; font-size: 1.2rem; color: #ff6b6b; margin: 10px 0; font-weight: bold;';
-    document.getElementById('event-log').appendChild(timerElement);
+    game.votingTimer = setTimeout(() => {
+        endVotingPhase();
+    }, game.votingDuration);
     
-    gameTimers.voting = setInterval(() => {
-        votingTime--;
-        timerElement.textContent = `⏰ Voting Time: ${votingTime}s`;
-        
-        if (votingTime <= 0) {
-            clearInterval(gameTimers.voting);
-            timerElement.remove();
-            // Auto-skip vote if no choice made
-            if (game.playerCharacter.vote === null) {
-                addToLog("⏰ Time's up! You automatically skip voting.", "warning");
-                castVote(null);
-            }
-        }
-    }, 1000);
+    // Update UI to show voting phase
+    updatePhaseTitle("🗳️ Voting Phase - Round " + game.round);
 }
 
-function castVote(targetPlayer) {
-    if (!game.playerCharacter.alive) {
-        addToLog("☠️ You are dead and cannot vote.", "warning");
+function showVotingInterface() {
+    const actionButtons = document.getElementById('dungeon-action-buttons');
+    if (!actionButtons) return;
+    
+    actionButtons.innerHTML = '';
+    
+    // Get alive players (excluding self)
+    const alivePlayers = game.players.filter(player => 
+        player.alive && 
+        !player.isDead && 
+        player.id !== game.playerCharacter.id
+    );
+    
+    if (alivePlayers.length === 0) {
+        addToLog('❌ No one to vote for!', 'warning');
         return;
     }
     
-    // Clear voting timer
-    if (gameTimers.voting) {
-        clearInterval(gameTimers.voting);
-        const timerElement = document.getElementById('voting-timer');
-        if (timerElement) timerElement.remove();
-    }
+    // Add voting header
+    const votingHeader = document.createElement('h3');
+    votingHeader.textContent = '🗳️ Vote for Suspected Corrupted Player';
+    votingHeader.style.color = '#FF5722';
+    votingHeader.style.margin = '0 0 10px 0';
+    votingHeader.style.textAlign = 'center';
+    actionButtons.appendChild(votingHeader);
     
-    game.playerCharacter.vote = targetPlayer ? targetPlayer.id : null;
+    // Add vote buttons for each player
+    alivePlayers.forEach(player => {
+        const voteButton = document.createElement('button');
+        voteButton.textContent = `🗳️ Vote for ${player.name}`;
+        voteButton.className = 'action-btn vote-btn';
+        voteButton.onclick = () => castVote(player.id);
+        actionButtons.appendChild(voteButton);
+    });
     
-    if (targetPlayer) {
-        addToLog(`🗳️ You vote for ${targetPlayer.name}.`, "info");
-    } else {
-        addToLog("🗳️ You choose to skip voting.", "info");
-    }
+    // Add abstain button
+    const abstainButton = document.createElement('button');
+    abstainButton.textContent = '🤷 Abstain (No Vote)';
+    abstainButton.className = 'action-btn abstain-btn';
+    abstainButton.onclick = () => castVote(null);
+    actionButtons.appendChild(abstainButton);
     
-    clearActionButtons();
+    // Add evidence button
+    const evidenceButton = document.createElement('button');
+    evidenceButton.textContent = '🔍 View Evidence';
+    evidenceButton.className = 'action-btn evidence-btn';
+    evidenceButton.onclick = () => showEvidenceInterface();
+    actionButtons.appendChild(evidenceButton);
     
-    // Simulate other players voting
-    setTimeout(() => {
-        simulateVoting();
-    }, 1000);
+    // Add current votes display
+    updateVotesDisplay();
 }
 
-function simulateVoting() {
-    addToLog("🤔 The other adventurers vote...", "info");
+function castVote(targetPlayerId) {
+    if (!game.votingPhase) return;
     
-    const alivePlayers = game.players.filter(p => p.alive);
+    const playerId = game.playerCharacter.id;
+    game.votes[playerId] = targetPlayerId;
     
-    // AI players vote (with some strategy)
-    alivePlayers.forEach(player => {
-        if (player.isPlayer || player.vote !== null) return;
-        
-        const otherPlayers = alivePlayers.filter(p => p.id !== player.id);
-        
-        if (Math.random() < 0.2) {
-            // 20% chance to skip
-            player.vote = null;
-        } else {
-            // Vote for someone
-            const target = randomElement(otherPlayers);
-            player.vote = target.id;
+    if (targetPlayerId) {
+        const targetPlayer = game.players.find(p => p.id === targetPlayerId);
+        addToLog(`🗳️ You voted for ${targetPlayer.name}`, 'info');
+    } else {
+        addToLog('🗳️ You abstained from voting', 'info');
+    }
+    
+    updateVotesDisplay();
+    
+    // Check if all players have voted
+    const alivePlayers = game.players.filter(player => player.alive && !player.isDead);
+    const votedPlayers = Object.keys(game.votes);
+    
+    if (votedPlayers.length >= alivePlayers.length) {
+        // All players have voted, end voting early
+        setTimeout(() => endVotingPhase(), 1000);
+    }
+}
+
+function updateVotesDisplay() {
+    const actionButtons = document.getElementById('dungeon-action-buttons');
+    if (!actionButtons || !game.votingPhase) return;
+    
+    // Remove existing votes display
+    const existingDisplay = actionButtons.querySelector('.votes-display');
+    if (existingDisplay) {
+        existingDisplay.remove();
+    }
+    
+    // Create new votes display
+    const votesDisplay = document.createElement('div');
+    votesDisplay.className = 'votes-display';
+    votesDisplay.style.marginTop = '10px';
+    votesDisplay.style.padding = '10px';
+    votesDisplay.style.backgroundColor = '#2a2a2a';
+    votesDisplay.style.borderRadius = '5px';
+    
+    let votesText = 'Current Votes: ';
+    const voteCounts = {};
+    
+    // Count votes
+    Object.values(game.votes).forEach(targetId => {
+        if (targetId) {
+            voteCounts[targetId] = (voteCounts[targetId] || 0) + 1;
         }
     });
     
+    // Display vote counts
+    const voteEntries = Object.entries(voteCounts);
+    if (voteEntries.length > 0) {
+        votesText += voteEntries.map(([playerId, count]) => {
+            const player = game.players.find(p => p.id === playerId);
+            return `${player.name}: ${count}`;
+        }).join(', ');
+    } else {
+        votesText += 'No votes yet';
+    }
+    
+    votesDisplay.textContent = votesText;
+    actionButtons.appendChild(votesDisplay);
+}
+
+function endVotingPhase() {
+    if (!game.votingPhase) return;
+    
+    game.votingPhase = false;
+    
+    if (game.votingTimer) {
+        clearTimeout(game.votingTimer);
+        game.votingTimer = null;
+    }
+    
     // Count votes
-    const votes = {};
-    alivePlayers.forEach(player => {
-        if (player.vote !== null) {
-            votes[player.vote] = (votes[player.vote] || 0) + 1;
+    const voteCounts = {};
+    Object.values(game.votes).forEach(targetId => {
+        if (targetId) {
+            voteCounts[targetId] = (voteCounts[targetId] || 0) + 1;
         }
     });
     
     // Find player with most votes
-    let maxVotes = 0;
     let eliminatedPlayer = null;
+    let maxVotes = 0;
+    let tiedPlayers = [];
     
-    for (const [playerId, voteCount] of Object.entries(votes)) {
-        if (voteCount > maxVotes) {
-            maxVotes = voteCount;
-            eliminatedPlayer = game.players.find(p => p.id === parseInt(playerId));
+    Object.entries(voteCounts).forEach(([playerId, count]) => {
+        if (count > maxVotes) {
+            maxVotes = count;
+            eliminatedPlayer = game.players.find(p => p.id === playerId);
+            tiedPlayers = [playerId];
+        } else if (count === maxVotes) {
+            tiedPlayers.push(playerId);
         }
-    }
+    });
     
-    setTimeout(() => {
-        if (eliminatedPlayer && maxVotes > 0) {
+    // Handle voting results
+    if (eliminatedPlayer && maxVotes > 0) {
+        if (tiedPlayers.length > 1) {
+            addToLog(`🗳️ Voting tied! No one is eliminated.`, 'warning');
+        } else {
+            addToLog(`🗳️ ${eliminatedPlayer.name} has been voted out!`, 'danger');
             eliminatedPlayer.alive = false;
-            addToLog(`⚖️ ${eliminatedPlayer.name} receives ${maxVotes} votes and is eliminated!`, "warning");
-            addToLog(`🎭 ${eliminatedPlayer.name} was ${eliminatedPlayer.role}!`, 
-                     eliminatedPlayer.role === "Corrupted" ? "success" : "warning");
-        } else {
-            addToLog("🤷 No one receives enough votes. No one is eliminated.", "info");
-        }
-        
-        updatePlayersList();
-        
-        // Reset votes
-        game.players.forEach(p => p.vote = null);
-        
-        setTimeout(() => {
-            if (!checkWinConditions()) {
-                game.currentDay++;
-                showMainButton("Nästa dag börjar...", dayNightVotingPhase);
-            }
-        }, 2000);
-    }, 2000);
-}
-
-// ----------------------------------------
-// EXTRACTION PHASE
-// ----------------------------------------
-function extractionPhase() {
-    clearActionButtons();
-    game.phase = "extraction";
-    
-    const alivePlayers = game.players.filter(p => p.alive && !p.escaped);
-    
-    if (alivePlayers.length === 0) {
-        resultPhase();
-        return;
-    }
-    
-    updatePhaseTitle("🚪 Extraction Phase - Flee or Stay?");
-    addToLog("─────────────────────────────", "info");
-    addToLog("🔮 The portal activates with a blue glow!", "success");
-    addToLog("🚪 You have a chance to escape with your loot, or stay for more...", "info");
-    
-    updatePlayersList();
-    
-    if (!game.playerCharacter.alive) {
-        addToLog("☠️ You are dead and cannot escape.", "warning");
-        setTimeout(() => {
-            simulateExtractions();
-        }, 2000);
-        return;
-    }
-    
-    // Create extraction buttons
-    const extractContainer = document.getElementById("extraction-buttons");
-    extractContainer.innerHTML = "<p style='color: #d4af37; margin-bottom: 10px;'>What do you do?</p>";
-    
-    const fleeBtn = document.createElement("button");
-    fleeBtn.className = "extraction-btn flee";
-    fleeBtn.textContent = "🏃 Flee Now!";
-    fleeBtn.onclick = () => makeExtractionChoice(true);
-    extractContainer.appendChild(fleeBtn);
-    
-    const stayBtn = document.createElement("button");
-    stayBtn.className = "extraction-btn stay";
-    stayBtn.textContent = "⏳ Stay Behind";
-    stayBtn.onclick = () => makeExtractionChoice(false);
-    extractContainer.appendChild(stayBtn);
-}
-
-function makeExtractionChoice(shouldFlee) {
-    if (!game.playerCharacter.alive) return;
-    
-    clearActionButtons();
-    
-    if (shouldFlee) {
-        game.playerCharacter.escaped = true;
-        // Transfer inventory to stash
-        game.playerCharacter.stash.push(...game.playerCharacter.inventory);
-        game.playerCharacter.inventory = [];
-        
-        addToLog(`✨ You run through the portal and escape with your loot!`, "success");
-        updateInventory();
-    } else {
-        addToLog(`⚔️ You choose to stay behind in the dungeon...`, "warning");
-    }
-    
-    updatePlayersList();
-    
-    setTimeout(() => {
-        simulateExtractions();
-    }, 1500);
-}
-
-function simulateExtractions() {
-    addToLog("🎭 The other adventurers make their decisions...", "info");
-    
-    const alivePlayers = game.players.filter(p => p.alive && !p.escaped && !p.isPlayer);
-    
-    alivePlayers.forEach((player, index) => {
-        setTimeout(() => {
-            // Corrupted are more likely to stay, innocents more likely to flee
-            const fleeChance = player.role === "Innocent" ? 0.6 : 0.3;
+            eliminatedPlayer.isDead = true;
             
-            if (Math.random() < fleeChance) {
-                player.escaped = true;
-                player.stash.push(...player.inventory);
-                player.inventory = [];
-                addToLog(`🏃 ${player.name} flees through the portal!`, "info");
+            // Check if they were corrupted
+            if (eliminatedPlayer.role === 'Corrupted') {
+                addToLog(`👹 ${eliminatedPlayer.name} was corrupted!`, 'success');
             } else {
-                addToLog(`⚔️ ${player.name} stays behind.`, "info");
+                addToLog(`😇 ${eliminatedPlayer.name} was innocent!`, 'warning');
             }
-            
-            updatePlayersList();
-        }, 500 * index);
-    });
-    
-    setTimeout(() => {
-        const stillInDungeon = game.players.filter(p => p.alive && !p.escaped);
-        
-        if (stillInDungeon.length > 1) {
-            addToLog("🌀 The portal closes. Those who stayed must continue...", "warning");
-            game.round++;
-            updateRoundInfo();
-            
-            setTimeout(() => {
-                showMainButton("Next Round", explorationPhase);
-            }, 2000);
-        } else {
-            resultPhase();
         }
-    }, 500 * (alivePlayers.length + 2));
-}
-
-// ----------------------------------------
-// RESULT PHASE
-// ----------------------------------------
-function resultPhase() {
-    clearActionButtons();
-    game.phase = "result";
-    
-    updatePhaseTitle("🏆 Result Phase - Game Over");
-    addToLog("─────────────────────────────", "info");
-    addToLog("📜 THE ADVENTURE IS OVER", "success");
-    addToLog("═══════════════════════════", "info");
-    
-    updatePlayersList();
-    updateInventory();
-    
-    // Show results
-    const escaped = game.players.filter(p => p.escaped);
-    const dead = game.players.filter(p => !p.alive);
-    const trapped = game.players.filter(p => p.alive && !p.escaped);
-    
-    addToLog(`\n🏃 ${escaped.length} adventurers escaped from the dungeon:`, "success");
-    escaped.forEach(p => {
-        addToLog(`  • ${p.name} (${p.role}) - ${p.stash.length} items in stash`, "success");
-    });
-    
-    if (dead.length > 0) {
-        addToLog(`\n💀 ${dead.length} adventurers died:`, "warning");
-        dead.forEach(p => {
-            addToLog(`  • ${p.name} (${p.role})`, "warning");
-        });
-    }
-    
-    if (trapped.length > 0) {
-        addToLog(`\n⚰️ ${trapped.length} adventurers are still trapped:`, "warning");
-        trapped.forEach(p => {
-            addToLog(`  • ${p.name} (${p.role})`, "warning");
-        });
-    }
-    
-    // Determine winner
-    addToLog("\n═══════════════════════════", "info");
-    const corruptedEscaped = escaped.filter(p => p.role === "Corrupted").length;
-    const innocentEscaped = escaped.filter(p => p.role === "Innocent").length;
-    
-    if (game.playerCharacter.escaped) {
-        addToLog("🎉 YOU SURVIVED AND ESCAPED!", "success");
-        addToLog(`💰 Your stash: ${game.playerCharacter.stash.length} items`, "success");
-    } else if (!game.playerCharacter.alive) {
-        addToLog("💀 You died in the dungeon...", "warning");
     } else {
-        addToLog("⚰️ You are trapped in the dungeon...", "warning");
+        addToLog('🗳️ No one received votes. No elimination.', 'info');
     }
     
-    addToLog("\n═══════════════════════════", "info");
+    // Check win conditions
+    checkWinConditions();
     
-    // Award gold and update stats
-    if (currentUser && game.playerCharacter) {
-        const lootCount = game.playerCharacter.stash.length;
-        const goldEarned = lootCount * 10; // 10 gold per item
-        const won = game.playerCharacter.escaped;
-        
-        if (lootCount > 0) {
-            addToLog(`\n💰 You earned ${goldEarned} gold from your loot!`, 'success');
-            updateUserStats(won, lootCount, goldEarned, game.playerCharacter.escaped);
-        }
+    // Clear voting interface
+    const actionButtons = document.getElementById('dungeon-action-buttons');
+    if (actionButtons) {
+        actionButtons.innerHTML = '';
     }
     
-    setTimeout(() => {
-        showMainButton("🔄 Play Again", startGame);
-        // Hide end game button
-        const endGameBtn = document.getElementById('end-game-btn');
-        if (endGameBtn) {
-            endGameBtn.style.display = 'none';
-        }
-    }, 1000);
+    // If game continues, start next day phase
+    if (!game.gameEnded) {
+        startNextDayPhase();
+    }
 }
 
-// ----------------------------------------
-// WIN CONDITION CHECKS
-// ----------------------------------------
+function startNextDayPhase() {
+    game.round++;
+    game.currentDay++;
+    
+    // Reset all players' stamina
+    game.players.forEach(player => {
+        if (player.alive && !player.isDead) {
+            player.currentStamina = calculateStamina(player);
+        }
+    });
+    
+    // Clear night phase
+    if (typeof window.endNightPhase === 'function') {
+        window.endNightPhase();
+    }
+    
+    addToLog(`🌅 Day ${game.currentDay} begins!`, 'info');
+    addToLog('All players wake up with full stamina.', 'info');
+    
+    // Update UI
+    updatePhaseTitle(`🗺️ Dungeon Exploration - Day ${game.currentDay}`);
+    
+    // Show normal actions
+    if (typeof window.showDungeonInterface === 'function') {
+        window.showDungeonInterface();
+    }
+}
+
+// ============================================
+// SOCIAL DEDUCTION MECHANICS
+// ============================================
+
+function addEvidence(evidenceType, description, playerId = null) {
+    const evidence = {
+        id: Date.now() + Math.random(),
+        type: evidenceType,
+        description: description,
+        playerId: playerId,
+        timestamp: Date.now(),
+        round: game.round
+    };
+    
+    game.evidence.push(evidence);
+    
+    // Log evidence for players to see
+    addToLog(`🔍 Evidence: ${description}`, 'info');
+    
+    return evidence;
+}
+
+function addSuspiciousAction(playerId, action, description) {
+    const suspiciousAction = {
+        id: Date.now() + Math.random(),
+        playerId: playerId,
+        action: action,
+        description: description,
+        timestamp: Date.now(),
+        round: game.round
+    };
+    
+    game.suspiciousActions.push(suspiciousAction);
+    
+    // Log suspicious action
+    const player = game.players.find(p => p.id === playerId);
+    if (player) {
+        addToLog(`⚠️ Suspicious: ${player.name} ${description}`, 'warning');
+    }
+    
+    return suspiciousAction;
+}
+
+function makeAccusation(accuserId, accusedId, reason) {
+    const accusation = {
+        id: Date.now() + Math.random(),
+        accuserId: accuserId,
+        accusedId: accusedId,
+        reason: reason,
+        timestamp: Date.now(),
+        round: game.round
+    };
+    
+    game.accusations.push(accusation);
+    
+    // Log accusation
+    const accuser = game.players.find(p => p.id === accuserId);
+    const accused = game.players.find(p => p.id === accusedId);
+    
+    if (accuser && accused) {
+        addToLog(`🗣️ ${accuser.name} accuses ${accused.name}: "${reason}"`, 'warning');
+    }
+    
+    return accusation;
+}
+
+function getEvidenceForPlayer(playerId) {
+    return game.evidence.filter(evidence => evidence.playerId === playerId);
+}
+
+function getSuspiciousActionsForPlayer(playerId) {
+    return game.suspiciousActions.filter(action => action.playerId === playerId);
+}
+
+function getAccusationsAgainstPlayer(playerId) {
+    return game.accusations.filter(accusation => accusation.accusedId === playerId);
+}
+
+function showEvidenceInterface() {
+    const actionButtons = document.getElementById('dungeon-action-buttons');
+    if (!actionButtons) return;
+    
+    actionButtons.innerHTML = '';
+    
+    // Add evidence header
+    const evidenceHeader = document.createElement('h3');
+    evidenceHeader.textContent = '🔍 Evidence & Accusations';
+    evidenceHeader.style.color = '#FF9800';
+    evidenceHeader.style.margin = '0 0 10px 0';
+    evidenceHeader.style.textAlign = 'center';
+    actionButtons.appendChild(evidenceHeader);
+    
+    // Show all evidence
+    if (game.evidence.length > 0) {
+        const evidenceContainer = document.createElement('div');
+        evidenceContainer.className = 'evidence-container';
+        evidenceContainer.style.marginBottom = '15px';
+        
+        const evidenceTitle = document.createElement('h4');
+        evidenceTitle.textContent = '📋 Evidence Found:';
+        evidenceTitle.style.color = '#4CAF50';
+        evidenceContainer.appendChild(evidenceTitle);
+        
+        game.evidence.forEach(evidence => {
+            const evidenceItem = document.createElement('div');
+            evidenceItem.className = 'evidence-item';
+            evidenceItem.style.padding = '5px';
+            evidenceItem.style.margin = '2px 0';
+            evidenceItem.style.backgroundColor = '#2a2a2a';
+            evidenceItem.style.borderRadius = '3px';
+            evidenceItem.textContent = `• ${evidence.description}`;
+            evidenceContainer.appendChild(evidenceItem);
+        });
+        
+        actionButtons.appendChild(evidenceContainer);
+    }
+    
+    // Show suspicious actions
+    if (game.suspiciousActions.length > 0) {
+        const suspiciousContainer = document.createElement('div');
+        suspiciousContainer.className = 'suspicious-container';
+        suspiciousContainer.style.marginBottom = '15px';
+        
+        const suspiciousTitle = document.createElement('h4');
+        suspiciousTitle.textContent = '⚠️ Suspicious Actions:';
+        suspiciousTitle.style.color = '#FF5722';
+        suspiciousContainer.appendChild(suspiciousTitle);
+        
+        game.suspiciousActions.forEach(action => {
+            const actionItem = document.createElement('div');
+            actionItem.className = 'suspicious-item';
+            actionItem.style.padding = '5px';
+            actionItem.style.margin = '2px 0';
+            actionItem.style.backgroundColor = '#3a1a1a';
+            actionItem.style.borderRadius = '3px';
+            actionItem.textContent = `• ${action.description}`;
+            suspiciousContainer.appendChild(actionItem);
+        });
+        
+        actionButtons.appendChild(suspiciousContainer);
+    }
+    
+    // Add accusation buttons for each player
+    const alivePlayers = game.players.filter(player => 
+        player.alive && 
+        !player.isDead && 
+        player.id !== game.playerCharacter.id
+    );
+    
+    if (alivePlayers.length > 0) {
+        const accusationContainer = document.createElement('div');
+        accusationContainer.className = 'accusation-container';
+        
+        const accusationTitle = document.createElement('h4');
+        accusationTitle.textContent = '🗣️ Make Accusations:';
+        accusationTitle.style.color = '#9C27B0';
+        accusationContainer.appendChild(accusationTitle);
+        
+        alivePlayers.forEach(player => {
+            const accusationButton = document.createElement('button');
+            accusationButton.textContent = `🗣️ Accuse ${player.name}`;
+            accusationButton.className = 'action-btn accusation-btn';
+            accusationButton.onclick = () => makePlayerAccusation(player.id);
+            accusationContainer.appendChild(accusationButton);
+        });
+        
+        actionButtons.appendChild(accusationContainer);
+    }
+    
+    // Add back to voting button
+    const backButton = document.createElement('button');
+    backButton.textContent = '🗳️ Back to Voting';
+    backButton.className = 'action-btn back-btn';
+    backButton.onclick = () => showVotingInterface();
+    actionButtons.appendChild(backButton);
+}
+
+function makePlayerAccusation(accusedId) {
+    const reason = prompt('Why do you suspect this player? (Enter your accusation):');
+    if (reason && reason.trim()) {
+        makeAccusation(game.playerCharacter.id, accusedId, reason.trim());
+        addToLog(`🗣️ You accused ${game.players.find(p => p.id === accusedId).name}: "${reason}"`, 'warning');
+    }
+}
+
+// ============================================
+// WIN CONDITIONS
+// ============================================
+
 function checkWinConditions() {
-    const alivePlayers = game.players.filter(p => p.alive && !p.escaped);
-    const aliveCorrupted = alivePlayers.filter(p => p.role === "Corrupted");
-    const aliveInnocent = alivePlayers.filter(p => p.role === "Innocent");
+    const alivePlayers = game.players.filter(player => player.alive && !player.isDead);
+    const corruptedPlayers = alivePlayers.filter(player => player.role === 'Corrupted');
+    const innocentPlayers = alivePlayers.filter(player => player.role === 'Innocent');
     
-    // If no one alive in dungeon, go to results
-    if (alivePlayers.length === 0) {
-        setTimeout(resultPhase, 2000);
-        return true;
+    // Innocent players win if all corrupted are eliminated
+    if (corruptedPlayers.length === 0) {
+        endGame('innocent', 'All corrupted players have been eliminated!');
+        return;
     }
     
-    // If only corrupted left
-    if (aliveInnocent.length === 0 && aliveCorrupted.length > 0) {
-        addToLog("😈 All Innocents are gone! The Corrupted control the dungeon!", "warning");
-        setTimeout(resultPhase, 2000);
-        return true;
+    // Corrupted players win if they equal or outnumber innocent players
+    if (corruptedPlayers.length >= innocentPlayers.length) {
+        endGame('corrupted', 'Corrupted players outnumber innocent players!');
+        return;
     }
     
-    // If only innocents left
-    if (aliveCorrupted.length === 0 && aliveInnocent.length > 0) {
-        addToLog("😇 All Corrupted are eliminated! The Innocents can flee!", "success");
-        setTimeout(extractionPhase, 2000);
-        return true;
+    // Game continues if neither condition is met
+    addToLog(`👥 Remaining: ${innocentPlayers.length} innocent, ${corruptedPlayers.length} corrupted`, 'info');
+}
+
+function endGame(winner, reason) {
+    game.gameEnded = true;
+    game.winner = winner;
+    game.winReason = reason;
+    
+    // Stop all timers
+    if (game.votingTimer) {
+        clearTimeout(game.votingTimer);
+        game.votingTimer = null;
     }
     
-    return false;
+    if (typeof window.stopAITimer === 'function') {
+        window.stopAITimer();
+    }
+    
+    if (typeof window.stopGameTimer === 'function') {
+        window.stopGameTimer();
+    }
+    
+    // Show end game screen
+    showEndGameScreen(winner, reason);
+}
+
+function showEndGameScreen(winner, reason) {
+    // Hide dungeon interface
+    const dungeonScreen = document.getElementById('dungeon-exploration-screen');
+    if (dungeonScreen) {
+        dungeonScreen.style.display = 'none';
+    }
+    
+    // Create end game screen
+    const endGameHTML = `
+        <div id="end-game-screen" class="screen" style="display: block;">
+            <div class="end-game-container">
+                <h1>${winner === 'innocent' ? '😇 Innocent Victory!' : '👹 Corrupted Victory!'}</h1>
+                <p class="win-reason">${reason}</p>
+                
+                <div class="game-results">
+                    <h3>Final Results</h3>
+                    <div class="player-results">
+                        ${game.players.map(player => `
+                            <div class="player-result ${player.role.toLowerCase()}">
+                                <span class="player-name">${player.name}</span>
+                                <span class="player-role">${player.role}</span>
+                                <span class="player-status">${player.alive ? 'Alive' : 'Eliminated'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div class="end-game-actions">
+                    <button onclick="returnToMenu()" class="primary-btn">Return to Menu</button>
+                    <button onclick="playAgain()" class="secondary-btn">Play Again</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add to body
+    document.body.insertAdjacentHTML('beforeend', endGameHTML);
+    
+    // Add to log
+    addToLog(`🎮 Game Ended: ${reason}`, winner === 'innocent' ? 'success' : 'warning');
+}
+
+function returnToMenu() {
+    // Clean up
+    const endGameScreen = document.getElementById('end-game-screen');
+    if (endGameScreen) {
+        endGameScreen.remove();
+    }
+    
+    // Reset game state
+    game = null;
+    gameTimers = {};
+    
+    // Return to menu
+    if (typeof window.showMenuScreen === 'function') {
+        window.showMenuScreen();
+    }
+}
+
+function playAgain() {
+    // Clean up
+    const endGameScreen = document.getElementById('end-game-screen');
+    if (endGameScreen) {
+        endGameScreen.remove();
+    }
+    
+    // Start new game
+    startGame();
 }
 
 // ============================================
@@ -1127,21 +764,44 @@ function endGameEarly() {
         const lootCount = game.playerCharacter ? game.playerCharacter.stash.length : 0;
         const goldEarned = lootCount * 10; // 10 gold per item
         
-        if (currentUser && lootCount > 0) {
-            updateUserStats(false, lootCount, goldEarned, game.playerCharacter.escaped);
+        if (lootCount > 0) {
             addToLog(`💰 You earned ${goldEarned} gold from ${lootCount} items!`, 'success');
         }
         
+        // Clear game state
+        game = null;
+        gameTimers = {};
+        
+        // Hide end game button
+        const endGameBtn = document.getElementById('end-game-btn');
+        if (endGameBtn) {
+            endGameBtn.style.display = 'none';
+        }
+        
         // Return to menu
-        setTimeout(() => {
-            showMenuScreen();
-        }, 1000);
+        if (typeof window.showMenuScreen === 'function') {
+            window.showMenuScreen();
+        }
     }
 }
 
 // ============================================
 // INITIALIZATION
 // ============================================
+
+// Export functions to window scope
+window.startGame = startGame;
+window.endGameEarly = endGameEarly;
+window.startVotingPhase = startVotingPhase;
+window.castVote = castVote;
+window.checkWinConditions = checkWinConditions;
+window.endGame = endGame;
+window.returnToMenu = returnToMenu;
+window.playAgain = playAgain;
+window.addEvidence = addEvidence;
+window.addSuspiciousAction = addSuspiciousAction;
+window.makeAccusation = makeAccusation;
+window.showEvidenceInterface = showEvidenceInterface;
 
 document.addEventListener("DOMContentLoaded", () => {
     console.log("🎮 Shadows of the Dungeon - Initialized");
@@ -1156,4 +816,3 @@ document.addEventListener("DOMContentLoaded", () => {
     
     showMainButton("Start Game", startGame);
 });
-

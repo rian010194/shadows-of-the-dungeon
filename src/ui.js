@@ -13,7 +13,7 @@ function hideAllScreens() {
     document.getElementById('stashhub-screen').style.display = 'none';
     document.getElementById('lobby-browser-screen').style.display = 'none';
     document.getElementById('matchmaking-screen').style.display = 'none';
-    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('dungeon-exploration-screen').style.display = 'none';
 }
 
 function showAuthScreen() {
@@ -266,8 +266,27 @@ function updateLobbyUI() {
 // Play Mode Selection
 // ----------------------------------------
 function selectSinglePlayer() {
-    showGameScreen();
-    startGame(); // Original single-player game
+    console.log('🎮 Starting single player mode...');
+    
+    // Hide menu screen
+    document.getElementById('menu-screen').style.display = 'none';
+    
+    console.log('📺 Starting game initialization...');
+    
+    // Start the game
+    console.log('🚀 Calling startGame()...');
+    startGame();
+    
+    // Force start dungeon exploration after a short delay
+    setTimeout(() => {
+        console.log('🏰 Forcing dungeon exploration start...');
+        if (typeof window.startDungeonExploration === 'function') {
+            console.log('✅ startDungeonExploration found, starting...');
+            window.startDungeonExploration();
+        } else {
+            console.log('❌ startDungeonExploration not found');
+        }
+    }, 2000);
 }
 
 function selectMultiplayer() {

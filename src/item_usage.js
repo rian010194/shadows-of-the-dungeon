@@ -187,6 +187,10 @@ function applyItemEffect(item) {
                 game.playerCharacter.inventory.push(secretLoot);
                 addToLog(`🔓 Du hittade hemligt byte: ${secretLoot.name}`, 'success');
                 updateInventory();
+                // Update items display if in dungeon
+                if (typeof updatePlayerItemsDisplay === 'function') {
+                    updatePlayerItemsDisplay();
+                }
                 effectApplied = true;
                 break;
                 

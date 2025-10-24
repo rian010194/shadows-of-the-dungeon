@@ -341,18 +341,30 @@
                         <span id="current-room-coords">(2,2)</span>
                         <span id="current-stamina">⚡ Stamina: 100</span>
                         <span id="time-of-day">🌅 Day</span>
+                        <span id="game-timer">⏱️ 0:00</span>
+                        <span id="corruption-status">😇 No one is corrupted</span>
                     </div>
                 </div>
 
                 <!-- Dungeon View Container -->
                 <div class="dungeon-view-container">
-                    <!-- Minimap View -->
-                    <div id="minimap-view" class="dungeon-view active">
-                        <div class="dungeon-view-header">
+                    <!-- Combined Header with Toggle and Movement -->
+                    <div class="dungeon-view-header">
+                        <div class="view-toggle-section">
                             <button id="toggle-view-btn" class="toggle-btn active" onclick="toggleDungeonView()">
                                 🗺️ Minimap
                             </button>
                         </div>
+                        <div class="movement-section">
+                            <h3>🚶 Movement</h3>
+                            <div id="movement-buttons" class="movement-buttons">
+                                <!-- Movement buttons will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Minimap View -->
+                    <div id="minimap-view" class="dungeon-view active">
                         <div id="dungeon-minimap" class="minimap">
                             <!-- Small ASCII minimap will be inserted here -->
                         </div>
@@ -360,85 +372,60 @@
 
                     <!-- Room View -->
                     <div id="room-view" class="dungeon-view">
-                        <div class="dungeon-view-header">
-                            <button id="toggle-view-btn" class="toggle-btn" onclick="toggleDungeonView()">
-                                🏠 Current Room
-                            </button>
-                        </div>
                         <div id="room-ascii-view" class="room-ascii">
                             <!-- Detailed room ASCII will be inserted here -->
                         </div>
                     </div>
                 </div>
 
-
-                <!-- Action Buttons -->
-                <div class="dungeon-actions">
-                    <h3>🎮 Actions</h3>
-                    <div id="dungeon-action-buttons" class="action-buttons">
-                        <!-- Movement and action buttons will be inserted here -->
+                <!-- Combined Actions and Items Section -->
+                <div class="dungeon-actions-items">
+                    <div class="actions-section">
+                        <h3>🎮 Room Actions</h3>
+                        <div id="dungeon-action-buttons" class="action-buttons">
+                            <!-- Room interaction and item usage buttons will be inserted here -->
+                        </div>
+                    </div>
+                    
+                    <div class="items-section">
+                        <h3>🎒 Your Items</h3>
+                        <div id="dungeon-player-items" class="player-items">
+                            <!-- Player items will be displayed here -->
+                        </div>
                     </div>
                 </div>
 
-                <!-- Event Log -->
-                <div class="dungeon-events">
-                    <h3>📜 Event Log</h3>
-                    <div id="dungeon-event-log" class="event-log">
-                        <!-- Events will be inserted here -->
+                <!-- Combined Event Log and Players Section -->
+                <div class="dungeon-events-players">
+                    <div class="events-section">
+                        <div class="events-header">
+                            <h3>📜 Event Log</h3>
+                            <div id="event-filters" class="event-filters">
+                                <!-- Dynamic filters will be generated here -->
+                            </div>
+                        </div>
+                        <div id="dungeon-event-log" class="event-log">
+                            <!-- Events will be inserted here -->
+                        </div>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- GAME SCREEN -->
-        <div id="game-screen" class="screen" style="display: none;">
-            <div id="main-container">
-                <!-- Phase Title -->
-                <div id="phase-title"></div>
-
-                <!-- Event/Description Area -->
-                <div id="event-log"></div>
-
-                <!-- Dungeon Map Display -->
-                <div id="dungeon-map-container" style="display: none;">
-                    <h3 style="color: #d4af37; text-align: center; margin-bottom: 15px;">🗺️ Dungeon Karta</h3>
-                    <div id="dungeon-map"></div>
-                </div>
-
-                <!-- Chat System -->
-                <div id="chat-container" style="display: none;">
-                    <h3 style="color: #d4af37; text-align: center; margin-bottom: 15px;">💬 Rum Chat</h3>
-                    <div id="chat-messages" class="chat-messages"></div>
-                    <div class="chat-input-container">
-                        <input type="text" id="chat-input" placeholder="Skriv meddelande..." maxlength="200">
-                        <button id="chat-send-btn" onclick="sendChatMessage()">Skicka</button>
+                    
+                    <div class="players-section">
+                        <h3>👥 Players in Room</h3>
+                        <div id="dungeon-room-players" class="room-players">
+                            <!-- Other players in the room will be displayed here -->
+                        </div>
                     </div>
                 </div>
 
-                <!-- Players Area -->
-                <div id="players-container">
-                    <h3>Adventurers</h3>
-                    <div id="players-list"></div>
-                </div>
-
-                <!-- Action Buttons Area -->
-                <div id="actions">
-                    <button id="main-action-btn" class="primary-btn">Start Game</button>
-                    <button id="end-game-btn" onclick="endGameEarly()" class="secondary-btn" style="display: none;">
-                        🚪 End Game & Return to Menu
+                <!-- Leave Game Button -->
+                <div class="dungeon-leave-section">
+                    <button onclick="leaveDungeonGame()" class="leave-game-btn">
+                        🚪 Leave Game
                     </button>
-                    <div id="vote-buttons"></div>
-                    <div id="extraction-buttons"></div>
-                    <div id="darkness-buttons"></div>
                 </div>
             </div>
-
-            <!-- Inventory Display (for player) -->
-            <div id="inventory-display">
-                <h3>Your Stash</h3>
-                <div id="inventory-items">No loot yet...</div>
-            </div>
         </div>
+
     </div>
 
     <!-- Scripts in order -->

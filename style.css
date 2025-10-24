@@ -2250,8 +2250,34 @@ button:disabled {
 /* Dungeon View Header */
 .dungeon-view-header {
     display: flex;
-    justify-content: center;
-    margin-bottom: 6px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    background: #2a2a2a;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.view-toggle-section {
+    display: flex;
+    align-items: center;
+}
+
+.movement-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.movement-section h3 {
+    color: #4CAF50;
+    margin: 0;
+    font-size: 0.9em;
 }
 
 .toggle-btn {
@@ -2281,6 +2307,115 @@ button:disabled {
 /* Dungeon View Container */
 .dungeon-view-container {
     margin-bottom: 10px;
+}
+
+.movement-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.movement-buttons .movement-btn {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    font-size: 0.8em;
+    padding: 8px 4px;
+}
+
+/* Combined Actions and Items Section */
+.dungeon-actions-items {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.actions-section, .items-section {
+    background: #2a2a2a;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #444;
+}
+
+.actions-section h3 {
+    color: #FF9800;
+    margin: 0 0 8px 0;
+    text-align: center;
+    font-size: 0.9em;
+}
+
+.items-section h3 {
+    color: #9C27B0;
+    margin: 0 0 8px 0;
+    text-align: center;
+    font-size: 0.9em;
+}
+
+/* Combined Event Log and Players Section */
+.dungeon-events-players {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.events-section, .players-section {
+    background: #2a2a2a;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #444;
+}
+
+.events-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.events-header h3 {
+    color: #2196F3;
+    margin: 0;
+    font-size: 0.9em;
+}
+
+.event-filters {
+    display: flex;
+    gap: 5px;
+}
+
+.filter-btn {
+    background: #333;
+    color: #fff;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 0.7em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.filter-btn:hover {
+    background: #444;
+    border-color: #2196F3;
+    color: #2196F3;
+}
+
+.filter-btn.active {
+    background: #2196F3;
+    color: #fff;
+    border-color: #2196F3;
+}
+
+.players-section h3 {
+    color: #4CAF50;
+    margin: 0 0 8px 0;
+    text-align: center;
+    font-size: 0.9em;
 }
 
 .dungeon-view {
@@ -2412,6 +2547,19 @@ button:disabled {
     line-height: 1.1;
 }
 
+/* Event timestamp styling */
+.event-timestamp {
+    color: #888;
+    font-size: 0.8em;
+    font-family: monospace;
+}
+
+/* Game timer styling */
+#game-timer {
+    color: #4CAF50;
+    font-weight: bold;
+}
+
 /* Core Gameplay Styles */
 .core-gameplay {
     background: #2a2a2a;
@@ -2479,5 +2627,465 @@ button:disabled {
     color: #888;
     margin-bottom: 6px;
     font-size: 0.9em;
+}
+
+/* Dungeon Room Players Section */
+.dungeon-room-players {
+    margin-bottom: 20px;
+}
+
+.dungeon-room-players h3 {
+    color: #d4af37;
+    margin-bottom: 10px;
+    text-align: center;
+    font-size: 1.1em;
+}
+
+.room-players {
+    background: #1a1a1a;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    max-height: 120px;
+    overflow-y: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.player-in-room {
+    background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+    border: 1px solid #555;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.9em;
+    color: #e0e0e0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 140px;
+    transition: all 0.2s ease;
+}
+
+.player-in-room:hover {
+    border-color: #d4af37;
+    background: linear-gradient(135deg, #3a3a3a, #2a2a2a);
+}
+
+.player-name {
+    font-weight: bold;
+    color: #d4af37;
+}
+
+.player-status {
+    font-size: 0.8em;
+    color: #aaa;
+    font-style: italic;
+}
+
+.player-action {
+    font-size: 0.8em;
+    color: #74c0fc;
+    font-style: italic;
+}
+
+.no-players {
+    color: #666;
+    font-style: italic;
+    text-align: center;
+    width: 100%;
+    padding: 20px;
+}
+
+/* Dungeon Items Section */
+.dungeon-items {
+    margin-bottom: 20px;
+}
+
+.dungeon-items h3 {
+    color: #d4af37;
+    margin-bottom: 10px;
+    text-align: center;
+    font-size: 1.1em;
+}
+
+.player-items {
+    background: #1a1a1a;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    max-height: 120px;
+    overflow-y: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.item-display {
+    background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+    border: 1px solid #555;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.85em;
+    color: #e0e0e0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 120px;
+    transition: all 0.2s ease;
+}
+
+.item-display:hover {
+    border-color: #d4af37;
+    background: linear-gradient(135deg, #3a3a3a, #2a2a2a);
+}
+
+.item-name {
+    font-weight: bold;
+    color: #d4af37;
+}
+
+.item-effect {
+    font-size: 0.8em;
+    color: #aaa;
+    font-style: italic;
+}
+
+.no-items {
+    color: #666;
+    font-style: italic;
+    text-align: center;
+    width: 100%;
+    padding: 20px;
+}
+
+/* Leave Game Button */
+.dungeon-leave-section {
+    margin-top: 20px;
+    text-align: center;
+    padding: 15px 0;
+    border-top: 1px solid #444;
+}
+
+.leave-game-btn {
+    background: linear-gradient(135deg, #8b0000, #5a0000);
+    color: #fff;
+    border: 2px solid #d4af37;
+    padding: 12px 24px;
+    font-size: 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: bold;
+}
+
+.leave-game-btn:hover {
+    background: linear-gradient(135deg, #a00000, #6b0000);
+    border-color: #ffd700;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Improved Actions Section Styling */
+.dungeon-actions {
+    margin-bottom: 20px;
+    background: #1a1a1a;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #444;
+}
+
+.dungeon-actions h3 {
+    color: #d4af37;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 1.1em;
+    border-bottom: 1px solid #444;
+    padding-bottom: 8px;
+}
+
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.action-btn {
+    background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+    color: #e0e0e0;
+    border: 1px solid #555;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.9em;
+    min-width: 120px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.action-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #3a3a3a, #2a2a2a);
+    border-color: #d4af37;
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.action-btn:disabled {
+    background: #1a1a1a;
+    color: #666;
+    border-color: #333;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Movement buttons specific styling */
+.movement-btn {
+    background: linear-gradient(135deg, #2d4a2d, #1a3a1a);
+    border-color: #4a7c4a;
+}
+
+.movement-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #3d5a3d, #2a4a2a);
+    border-color: #5a8c5a;
+}
+
+/* Search button specific styling */
+.search-btn {
+    background: linear-gradient(135deg, #4a2d4a, #3a1a3a);
+    border-color: #7c4a7c;
+}
+
+.search-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #5a3d5a, #4a2a4a);
+    border-color: #8c5a8c;
+}
+
+/* Interactive object buttons */
+.interactive-btn {
+    background: linear-gradient(135deg, #4a4a2d, #3a3a1a);
+    border-color: #7c7c4a;
+}
+
+.interactive-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #5a5a3d, #4a4a2a);
+    border-color: #8c8c5a;
+}
+
+/* Voting Interface Styling */
+.vote-btn {
+    background: linear-gradient(135deg, #ff5722, #d32f2f);
+    border-color: #ff8a65;
+    color: white;
+    font-weight: bold;
+}
+
+.vote-btn:hover {
+    background: linear-gradient(135deg, #d32f2f, #b71c1c);
+    transform: translateY(-2px);
+}
+
+.abstain-btn {
+    background: linear-gradient(135deg, #607d8b, #455a64);
+    border-color: #90a4ae;
+    color: white;
+}
+
+.abstain-btn:hover {
+    background: linear-gradient(135deg, #455a64, #37474f);
+    transform: translateY(-2px);
+}
+
+.votes-display {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 5px;
+    padding: 10px;
+    margin-top: 10px;
+    color: #ccc;
+    font-size: 0.9em;
+}
+
+/* End Game Screen Styling */
+.end-game-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    text-align: center;
+    background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+    border-radius: 10px;
+    border: 2px solid #444;
+}
+
+.end-game-container h1 {
+    font-size: 2.5em;
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.win-reason {
+    font-size: 1.2em;
+    color: #ccc;
+    margin-bottom: 30px;
+    padding: 15px;
+    background: #333;
+    border-radius: 5px;
+    border-left: 4px solid #4caf50;
+}
+
+.game-results {
+    margin: 30px 0;
+    text-align: left;
+}
+
+.game-results h3 {
+    color: #4caf50;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.player-results {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.player-result {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #444;
+    background: #2a2a2a;
+}
+
+.player-result.innocent {
+    border-left: 4px solid #4caf50;
+}
+
+.player-result.corrupted {
+    border-left: 4px solid #f44336;
+}
+
+.player-name {
+    font-weight: bold;
+    color: #fff;
+}
+
+.player-role {
+    color: #ccc;
+    font-size: 0.9em;
+}
+
+.player-status {
+    font-size: 0.8em;
+    padding: 2px 8px;
+    border-radius: 3px;
+}
+
+.player-status:contains("Alive") {
+    background: #4caf50;
+    color: white;
+}
+
+.player-status:contains("Eliminated") {
+    background: #f44336;
+    color: white;
+}
+
+.end-game-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.end-game-actions .primary-btn {
+    background: linear-gradient(135deg, #4caf50, #2e7d32);
+    border-color: #66bb6a;
+    font-size: 1.1em;
+    padding: 12px 24px;
+}
+
+.end-game-actions .secondary-btn {
+    background: linear-gradient(135deg, #607d8b, #455a64);
+    border-color: #90a4ae;
+    font-size: 1.1em;
+    padding: 12px 24px;
+}
+
+.end-game-actions .primary-btn:hover {
+    background: linear-gradient(135deg, #2e7d32, #1b5e20);
+    transform: translateY(-2px);
+}
+
+.end-game-actions .secondary-btn:hover {
+    background: linear-gradient(135deg, #455a64, #37474f);
+    transform: translateY(-2px);
+}
+
+/* Evidence Interface Styling */
+.evidence-btn {
+    background: linear-gradient(135deg, #FF9800, #F57C00);
+    border-color: #FFB74D;
+    color: white;
+    font-weight: bold;
+}
+
+.evidence-btn:hover {
+    background: linear-gradient(135deg, #F57C00, #E65100);
+    transform: translateY(-2px);
+}
+
+.accusation-btn {
+    background: linear-gradient(135deg, #9C27B0, #7B1FA2);
+    border-color: #BA68C8;
+    color: white;
+    font-weight: bold;
+}
+
+.accusation-btn:hover {
+    background: linear-gradient(135deg, #7B1FA2, #6A1B9A);
+    transform: translateY(-2px);
+}
+
+.back-btn {
+    background: linear-gradient(135deg, #607d8b, #455a64);
+    border-color: #90a4ae;
+    color: white;
+}
+
+.back-btn:hover {
+    background: linear-gradient(135deg, #455a64, #37474f);
+    transform: translateY(-2px);
+}
+
+.evidence-container, .suspicious-container, .accusation-container {
+    margin: 10px 0;
+    padding: 10px;
+    background: #1a1a1a;
+    border-radius: 5px;
+    border: 1px solid #333;
+}
+
+.evidence-item, .suspicious-item {
+    padding: 5px;
+    margin: 2px 0;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+.evidence-item {
+    background: #2a4a2a;
+    color: #4caf50;
+}
+
+.suspicious-item {
+    background: #4a1a1a;
+    color: #ff5722;
 }
 
